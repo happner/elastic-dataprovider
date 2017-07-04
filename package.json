@@ -1,0 +1,28 @@
+{
+  "name": "happner-elastic-dataprovider",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "devDependencies": {
+    "assert": "^1.4.0",
+    "chai": "^3.5.0",
+    "gulp": "*",
+    "json-from-schema": "1.10.0",
+    "mocha": "*",
+    "rimraf": "^2.4.4",
+    "happner-2": "2.7.5",
+    "expect.js": "^0.3.1",
+    "node-uuid": "^1.4.7"
+  },
+  "private": true,
+  "dependencies": {
+    "async": "1.5.2",
+    "bluebird": "2.10.2",
+    "elasticsearch": "^13.2.0",
+    "happn-logger": "^0.0.1",
+    "shortid": "^2.2.8",
+    "sift": "^3.2.6",
+    "underscore": "^1.8.3"
+  }
+}
