@@ -159,7 +159,7 @@ describe('func', function() {
 
   it('gets data with complex search', function(callback) {
 
-    this.timeout(10000);
+    this.timeout(2000);
 
     var test_path_end = require('shortid').generate();
 
@@ -202,24 +202,29 @@ describe('func', function() {
 
           expect(e == null).to.be(true);
 
-          serviceInstance.find('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex*', {
-            criteria: criteria1,
-            options: options1
-          }, function (e, search_result) {
-
-            expect(e == null).to.be(true);
-            expect(search_result.length == 1).to.be(true);
+          setTimeout(function(){
 
             serviceInstance.find('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex*', {
-              criteria: criteria2,
-              options: options2
+              criteria: criteria1,
+              options: options1
             }, function (e, search_result) {
-              expect(e == null).to.be(true);
-              expect(search_result.length == 2).to.be(true);
 
-              callback(e);
+              expect(e == null).to.be(true);
+
+              expect(search_result.length == 1).to.be(true);
+
+              serviceInstance.find('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex*', {
+                criteria: criteria2,
+                options: options2
+              }, function (e, search_result) {
+                expect(e == null).to.be(true);
+                expect(search_result.length == 2).to.be(true);
+
+                callback(e);
+              });
             });
-          });
+
+          }, 1000)
         });
       });
     });
@@ -240,7 +245,7 @@ describe('func', function() {
     });
   });
 
-  xit('gets data with $not', function(done) {
+  it('gets data with $not', function(done) {
 
     var test_obj = {
       data:'ok'
@@ -250,11 +255,11 @@ describe('func', function() {
       data:'notok'
     };
 
-    serviceInstance.upsert('/not_get/' + testId + '/ok/1', test_obj, {}, false, function (e) {
+    serviceInstance.upsert('/not_get/' + testId + '/ok/1', {data:test_obj}, {}, false, function (e, response) {
 
       expect(e == null).to.be(true);
 
-      serviceInstance.upsert('/not_get/' + testId + '/_notok_/1' , test_obj1, {}, false, function (e) {
+      serviceInstance.upsert('/not_get/' + testId + '/_notok_/1' , {data:test_obj1}, {}, false, function (e, response2) {
 
         expect(e == null).to.be(true);
 

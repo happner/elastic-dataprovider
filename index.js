@@ -1,6 +1,7 @@
 var mongoToElastic = require('./lib/mongo-to-elastic')
   ,  sift = require('sift')
   , async = require('async')
+  , traverse = require('traverse')
 ;
 
 function ElasticProvider (config){
@@ -102,7 +103,7 @@ ElasticProvider.prototype.__createIndexes = function(callback){
   if (!defaultIndexFound){
     _this.config.indexes.push(indexJSON);
   }
-  
+
   async.eachSeries(_this.config.indexes, function(index, indexCB){
 
     if (index.index != _this.defaultIndex) {
@@ -195,6 +196,27 @@ ElasticProvider.prototype.__filter = function(criteria, items){
   }
 };
 
+ElasticProvider.prototype.__escapePath = function(path){
+
+  var escapedPath = path;
+
+  test = "simon@bishop@we";
+
+  var matches = path.match(/([~!@#$%^&()\-+={}\[\]\|\\:;'<>,.\? ])+/g);
+  var escaped = {};
+
+  if (matches && matches.length > 0)
+    matches.forEach(function(match) {
+
+      if (!escaped[match]){
+        escapedPath = escapedPath.split(match).join( "/" + match);
+        escaped[match] = true;
+      }
+    });
+
+  return escapedPath;
+};
+
 ElasticProvider.prototype.find = function(path, parameters, callback){
 
   var _this = this;
@@ -217,16 +239,19 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
   if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
 
-  if (path.indexOf('*') > -1){
+  var returnType = path.indexOf('*'); //0,1 == array -1 == single
 
-    elasticMessage.body["query"]["bool"]["must"].push({
-      "wildcard": {
-        "path": path
-      }
-    });
+  if (returnType == 0){
 
+    elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
+      "path": '^' + path.replace(/[*]/g, '.*')
+    }});
+  } else if (returnType > 0) {
+
+    elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
+      "path": path.replace(/[*]/g, '.*')
+    }});
   } else {
-
     elasticMessage.body["query"]["bool"]["must"].push({
       "terms": {
         "_id": [ path ]
@@ -240,9 +265,11 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
       if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0){
 
-        var items = _this.__transformResults(resp.hits.hits);
+        var found = resp.hits.hits;
 
-        if (parameters.criteria) items = _this.__filter(parameters.criteria, items);
+        if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+
+        var items = _this.__transformResults(found);
 
         callback(null, items);
 
@@ -250,6 +277,7 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
     })
     .catch(function(e){
+      console.log('catching:::' + e.toString());
       callback(e);
     })
 };
@@ -279,6 +307,58 @@ ElasticProvider.prototype.__transformResults = function(results){
   });
 
   return transformed;
+};
+
+ElasticProvider.prototype.__parseFields = function (fields) {
+
+  traverse(fields).forEach(function (value) {
+
+    if (value) {
+
+      var _thisNode = this;
+
+      //ignore elements in arrays
+      if (_thisNode.parent && Array.isArray(_thisNode.parent.node)) return;
+
+      if (typeof _thisNode.key == 'string') {
+        //ignore directives
+        if (_thisNode.key.indexOf('$') == 0) return;
+
+        if (_thisNode.key == '_id') {
+          _thisNode.parent.node['_source._id'] = value;
+          return _thisNode.remove();
+        }
+
+        if (_thisNode.key == 'path' || _thisNode.key == "_meta.path") {
+          _thisNode.parent.node['_source.path'] = value;
+          return _thisNode.remove();
+        }
+
+        if (_thisNode.key == 'created' || _thisNode.key == "_meta.created") {
+          _thisNode.parent.node['_source.created'] = value;
+          return _thisNode.remove();
+        }
+
+        if (_thisNode.key == 'modified' || _thisNode.key == "_meta.modified") {
+          _thisNode.parent.node['_source.modified'] = value;
+          return _thisNode.remove();
+        }
+
+        if (_thisNode.key == 'timestamp' || _thisNode.key == "_meta.timestamp") {
+          _thisNode.parent.node['_source.timestamp'] = value;
+          return _thisNode.remove();
+        }
+
+        if (_thisNode.key.indexOf('data.') == 0) _thisNode.parent.node['_source.' + _thisNode.key] = value;
+        //prepend with data.
+        else _thisNode.parent.node['_source.data.' + _thisNode.key] = value;
+
+        return _thisNode.remove();
+      }
+    }
+  });
+
+  return fields;
 };
 
 ElasticProvider.prototype.__getMeta = function(response){

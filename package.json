@@ -23,6 +23,7 @@
     "happn-logger": "^0.0.1",
     "shortid": "^2.2.8",
     "sift": "^3.2.6",
+    "traverse": "^0.6.6",
     "underscore": "^1.8.3"
   }
 }
