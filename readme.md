@@ -3,7 +3,7 @@ happner elastic dataprovider
 *This dataprovider provides the ability to run happner/happn instances off of elasticsearch instead of mongo or nedb*
 
 
-###installation instructions:
+### installation instructions:
 
 ```bash
 #install deps
@@ -15,7 +15,7 @@ mocha test/func
 node test/historian/server/start.js
 ```
 
-###configuration:
+### configuration:
 
 ```javascript
 
