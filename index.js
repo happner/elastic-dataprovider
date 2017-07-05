@@ -1,10 +1,10 @@
 var mongoToElastic = require('./lib/mongo-to-elastic')
-  ,  sift = require('sift')
+  , sift = require('sift')
   , async = require('async')
   , traverse = require('traverse')
-;
+  ;
 
-function ElasticProvider (config){
+function ElasticProvider(config) {
 
   if (config.cache) {
 
@@ -17,20 +17,20 @@ function ElasticProvider (config){
 
   if (!config.defaultType) config.defaultType = 'happner';
 
-  Object.defineProperty(this, 'config', {value:config});
+  Object.defineProperty(this, 'config', {value: config});
 
-  Object.defineProperty(this, '__dynamicRoutes', {value:{}});
+  Object.defineProperty(this, '__dynamicRoutes', {value: {}});
 }
 
-ElasticProvider.prototype.__createDynamicObject = function(dynamicParts, data){
+ElasticProvider.prototype.__createDynamicObject = function (dynamicParts, data) {
 
 };
 
-ElasticProvider.prototype.__createDynamicIndex = function(dynamicParts, callback){
+ElasticProvider.prototype.__createDynamicIndex = function (dynamicParts, callback) {
 
 };
 
-ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path, data, callback){
+ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path, data, callback) {
 
   var _this = this;
 
@@ -38,17 +38,17 @@ ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path,
 
   var pathSegments = path.pattern.split('/');
 
-  var dynamicParts = {fields:{}};
+  var dynamicParts = {fields: {}};
 
   var indexCreated = false;
 
-  indexSegments.every(function(segment, segmentArray, segmentIndex){
+  indexSegments.every(function (segment, segmentArray, segmentIndex) {
 
     if (segment == "{{index}}") {
 
       dynamicParts.index = pathSegments[segmentIndex];
 
-      if (_this.__dynamicRoutes[dynamicParts.index] != null){
+      if (_this.__dynamicRoutes[dynamicParts.index] != null) {
 
         dynamicParts = _this.__dynamicRoutes[dynamicParts.index];
         indexCreated = true;
@@ -58,11 +58,11 @@ ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path,
 
     if (segment == "{{type}}") dynamicParts.type = pathSegments[segmentIndex];
 
-    if (segment.indexOf("{{") == 0){
+    if (segment.indexOf("{{") == 0) {
 
-      var fieldSegment = segment.replace("{{","").replace("}}","");
+      var fieldSegment = segment.replace("{{", "").replace("}}", "");
 
-      var dynamicField = {type:"string", name:fieldSegment};
+      var dynamicField = {type: "string", name: fieldSegment};
 
       if (segment.indexOf(":") > 0) {
 
@@ -80,7 +80,7 @@ ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path,
 
   if (!indexCreated) {
 
-    _this.__createDynamicIndex(dynamicParts, function(e){
+    _this.__createDynamicIndex(dynamicParts, function (e) {
 
       if (e) return callback(e);
 
@@ -92,20 +92,20 @@ ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path,
   } else callback(null, dynamicParts, data);
 };
 
-ElasticProvider.prototype.__getRoute = function(path, data, callback){
+ElasticProvider.prototype.__getRoute = function (path, data, callback) {
 
   var _this = this;
 
   var route = null;
 
-  if (typeof data == 'function'){
+  if (typeof data == 'function') {
     callback = data;
     data = null;
   }
 
-  _this.config.dataroutes.every(function(dataStoreRoute){
+  _this.config.dataroutes.every(function (dataStoreRoute) {
 
-    if (_this.happn.services.utils.wildcardMatch(dataStoreRoute.pattern, path)){
+    if (_this.happn.services.utils.wildcardMatch(dataStoreRoute.pattern, path)) {
 
       route = dataStoreRoute;
 
@@ -116,9 +116,9 @@ ElasticProvider.prototype.__getRoute = function(path, data, callback){
 
   if (!route) return callback(new Error('route for path ' + path + ' does not exist'));
 
-  if (route.dynamic){
+  if (route.dynamic) {
 
-    _this.__prepareDynamicIndex(route, path, data, function(e, dynamicRoute, data){
+    _this.__prepareDynamicIndex(route, path, data, function (e, dynamicRoute, data) {
 
       if (e) return callback(e);
 
@@ -127,7 +127,7 @@ ElasticProvider.prototype.__getRoute = function(path, data, callback){
 
   } else {
 
-    return callback(null, {index:route.index, type:_this.config.defaultType}, data);
+    return callback(null, {index: route.index, type: _this.config.defaultType}, data);
   }
 };
 
@@ -136,18 +136,18 @@ ElasticProvider.prototype.wildcardMatch = function (pattern, matchTo) {
   return matchTo.match(new RegExp(pattern.replace(/[*]/g, '.*'))) != null;
 };
 
-ElasticProvider.prototype.__createIndex = function(index, indexConfig, callback){
+ElasticProvider.prototype.__createIndex = function (index, indexConfig, callback) {
 
   var _this = this;
 
-  var doCallback = function(e, response){
+  var doCallback = function (e, response) {
     if (e) return callback(new Error('failed creating index' + index + ':' + e.toString(), e));
     callback(null, response);
   };
 
   _this.db.indices.exists({
-    'index':	index
-  }, function (e, res){
+    'index': index
+  }, function (e, res) {
 
     if (e) return doCallback(e);
 
@@ -159,21 +159,16 @@ ElasticProvider.prototype.__createIndex = function(index, indexConfig, callback)
   });
 };
 
-ElasticProvider.prototype.__createIndexes = function(callback){
+ElasticProvider.prototype.__buildIndexObj = function (indexConfig) {
 
   var _this = this;
 
-  if (!_this.config.indexes) _this.config.indexes = [];
+  if (indexConfig.index == null) indexConfig.index = _this.config.defaultIndex;
 
-  var defaultIndexFound = false;
-
-  _this.config.indexes.forEach(function(indexConfig){
-
-    if (indexConfig.index == _this.config.defaultIndex) defaultIndexFound = true;
-  });
+  if (indexConfig.type == null) indexConfig.type = _this.config.defaultType;
 
   var indexJSON = {
-    index: _this.config.defaultIndex,
+    index: indexConfig.index,
     body: {
       "mappings": {}
     }
@@ -181,42 +176,61 @@ ElasticProvider.prototype.__createIndexes = function(callback){
 
   var typeJSON = {
     "properties": {
-      "path":       {"type": "keyword"},
-      "data":       {"type": "object"},
-      "created":    {"type": "date"},
-      "timestamp":  {"type": "date"},
-      "modified":   {"type": "date"},
-      "modifiedBy": {"type":"keyword"},
-      "createdBy":  {"type":"keyword"}
+      "path": {"type": "keyword"},
+      "data": {"type": "object"},
+      "created": {"type": "date"},
+      "timestamp": {"type": "date"},
+      "modified": {"type": "date"},
+      "modifiedBy": {"type": "keyword"},
+      "createdBy": {"type": "keyword"}
     }
   };
 
-  indexJSON.body.mappings[_this.config.defaultType] = typeJSON;
+  indexJSON.body.mappings[indexConfig.type] = typeJSON;
 
-  if (!defaultIndexFound){
+  //add any additional mappings
+  if (indexConfig.body && indexConfig.body.mappings && indexConfig.body.mappings[indexConfig.type])
+    Object.keys(indexConfig.body.mappings[indexConfig.type].properties).forEach(function (fieldName) {
+
+      if (indexJSON.body.mappings[indexConfig.type][fieldName] == null)
+        indexJSON.body.mappings[indexConfig.type][fieldName] = indexJSON.body.mappings[indexConfig.type][fieldName];
+    });
+
+  console.log('index JSON:::', JSON.stringify(indexJSON, null, 2));
+
+  return indexJSON;
+};
+
+ElasticProvider.prototype.__createIndexes = function (callback) {
+
+  var _this = this;
+
+  if (!_this.config.indexes) _this.config.indexes = [];
+
+  var defaultIndexFound = false;
+
+  _this.config.indexes.forEach(function (indexConfig) {
+
+    if (indexConfig.index === _this.config.defaultIndex) defaultIndexFound = true;
+  });
+
+  var indexJSON = _this.__buildIndexObj({
+      index: _this.config.defaultIndex,
+      type: _this.config.defaultType
+    }
+  );
+
+  if (!defaultIndexFound) {
     _this.config.indexes.push(indexJSON);
   }
 
-  async.eachSeries(_this.config.indexes, function(index, indexCB){
+  async.eachSeries(_this.config.indexes, function (index, indexCB) {
 
-    if (index.index != _this.defaultIndex) {
+    if (index.index != _this.defaultIndex) indexJSON = _this.__buildIndexObj(index);
 
-      if (index.body == null) index.body = {};
+    _this.__createIndex(index.index, indexJSON, indexCB);
 
-      if (index.body.mappings == null) index.body.mappings = {};
-
-      if (index.body.mappings[_this.config.defaultType] == null) index.body.mappings[_this.config.defaultType] = {};
-
-      Object.keys(indexJSON.body.mappings[_this.config.defaultType]).forEach(function(fieldName){
-
-        if (index.body.mappings[_this.config.defaultType][fieldName] == null)
-          index.body.mappings[_this.config.defaultType][fieldName] = indexJSON.body.mappings[_this.config.defaultType][fieldName];
-      });
-    }
-
-    _this.__createIndex(index.index, index, indexCB);
-
-  }, function(e){
+  }, function (e) {
 
     if (e) return callback(e);
 
@@ -226,23 +240,23 @@ ElasticProvider.prototype.__createIndexes = function(callback){
 
     var defaultRouteFound = false;
 
-    _this.config.dataroutes.forEach(function(route){
+    _this.config.dataroutes.forEach(function (route) {
       if (route.pattern == '*') defaultRouteFound = true;
     });
 
-    if (!defaultRouteFound) _this.config.dataroutes.push({pattern:'*', index:_this.config.defaultIndex});
+    if (!defaultRouteFound) _this.config.dataroutes.push({pattern: '*', index: _this.config.defaultIndex});
 
     callback();
   });
 };
 
-ElasticProvider.prototype.initialize = function(callback){
+ElasticProvider.prototype.initialize = function (callback) {
 
   var _this = this;
 
   var elasticsearch = require('elasticsearch');
 
-  try{
+  try {
 
     var client = new elasticsearch.Client(_this.config);
 
@@ -252,18 +266,18 @@ ElasticProvider.prototype.initialize = function(callback){
 
       if (e) return callback(e);
 
-      Object.defineProperty(_this, 'db', {value:client});
+      Object.defineProperty(_this, 'db', {value: client});
 
       _this.__createIndexes(callback);
     });
-  }catch(e){
+  } catch (e) {
     callback(e);
   }
 };
 
-ElasticProvider.prototype.findOne = function(criteria, fields, callback){
+ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
-  this.find(criteria, fields, function(e, results){
+  this.find(criteria, fields, function (e, results) {
     if (e) return callback(e);
 
     callback(null, results[0]);
@@ -281,15 +295,15 @@ ElasticProvider.prototype.sanitize = function (query) {
     .replace(/NOT/g, '\\N\\O\\T'); // replace NOT
 };
 
-ElasticProvider.prototype.__filter = function(criteria, items){
-  try{
+ElasticProvider.prototype.__filter = function (criteria, items) {
+  try {
     return sift(criteria, items);
-  }catch(e){
+  } catch (e) {
     throw new Error('filter failed: ' + e.toString(), e);
   }
 };
 
-ElasticProvider.prototype.__escapePath = function(path){
+ElasticProvider.prototype.__escapePath = function (path) {
 
   var escapedPath = path;
 
@@ -299,10 +313,10 @@ ElasticProvider.prototype.__escapePath = function(path){
   var escaped = {};
 
   if (matches && matches.length > 0)
-    matches.forEach(function(match) {
+    matches.forEach(function (match) {
 
-      if (!escaped[match]){
-        escapedPath = escapedPath.split(match).join( "/" + match);
+      if (!escaped[match]) {
+        escapedPath = escapedPath.split(match).join("/" + match);
         escaped[match] = true;
       }
     });
@@ -310,19 +324,19 @@ ElasticProvider.prototype.__escapePath = function(path){
   return escapedPath;
 };
 
-ElasticProvider.prototype.find = function(path, parameters, callback){
+ElasticProvider.prototype.find = function (path, parameters, callback) {
 
   var _this = this;
 
-  _this.__getRoute(path, function(e, route){
+  _this.__getRoute(path, function (e, route) {
 
     var elasticMessage = {
       "index": route.index,
-      "type":  route.type,
-      "body":{
-        "query":{
-          "bool":{
-            "must":[]
+      "type": route.type,
+      "body": {
+        "query": {
+          "bool": {
+            "must": []
           }
         }
       }
@@ -336,20 +350,24 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
     var returnType = path.indexOf('*'); //0,1 == array -1 == single
 
-    if (returnType == 0){
+    if (returnType == 0) {
 
-      elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
-        "path": '^' + path.replace(/[*]/g, '.*')
-      }});
+      elasticMessage.body["query"]["bool"]["must"].push({
+        "regexp": {
+          "path": '^' + path.replace(/[*]/g, '.*')
+        }
+      });
     } else if (returnType > 0) {
 
-      elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
-        "path": path.replace(/[*]/g, '.*')
-      }});
+      elasticMessage.body["query"]["bool"]["must"].push({
+        "regexp": {
+          "path": path.replace(/[*]/g, '.*')
+        }
+      });
     } else {
       elasticMessage.body["query"]["bool"]["must"].push({
         "terms": {
-          "_id": [ path ]
+          "_id": [path]
         }
       });
     }
@@ -358,7 +376,7 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
       .then(function (resp) {
 
-        if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0){
+        if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
 
           var found = resp.hits.hits;
 
@@ -371,7 +389,7 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
         } else callback(null, []);
 
       })
-      .catch(function(e){
+      .catch(function (e) {
         console.log('catching:::' + e.toString());
         callback(e);
       });
@@ -379,12 +397,12 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
 };
 
-ElasticProvider.prototype.update = function(criteria, data, options, callback){
+ElasticProvider.prototype.update = function (criteria, data, options, callback) {
 
   return this.db.update(criteria, data, options, callback);
 };
 
-ElasticProvider.prototype.__transformResult = function(result){
+ElasticProvider.prototype.__transformResult = function (result) {
 
   var transformed = {};
 
@@ -394,12 +412,12 @@ ElasticProvider.prototype.__transformResult = function(result){
   return transformed;
 };
 
-ElasticProvider.prototype.__transformResults = function(results){
+ElasticProvider.prototype.__transformResults = function (results) {
 
   var _this = this;
   var transformed = [];
 
-  results.forEach(function(result){
+  results.forEach(function (result) {
     transformed.push(_this.__transformResult(result));
   });
 
@@ -458,29 +476,29 @@ ElasticProvider.prototype.__parseFields = function (fields) {
   return fields;
 };
 
-ElasticProvider.prototype.__getMeta = function(response){
+ElasticProvider.prototype.__getMeta = function (response) {
 
   var meta = {
-    created:response.created,
-    modified:response.modified,
-    modifiedBy:response.modifiedBy,
-    timestamp:response.timestamp,
-    path:response.path,
-    _id:response.path
+    created: response.created,
+    modified: response.modified,
+    modifiedBy: response.modifiedBy,
+    timestamp: response.timestamp,
+    path: response.path,
+    _id: response.path
   };
 
   return meta;
 };
 
-ElasticProvider.prototype.upsert = function(path, setData, options, dataWasMerged, callback){
+ElasticProvider.prototype.upsert = function (path, setData, options, dataWasMerged, callback) {
 
   var _this = this;
 
   var modifiedOn = Date.now();
 
-  var timestamp = setData.data.timestamp?setData.data.timestamp:modifiedOn;
+  var timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
 
-  this.__getRoute(path, setData.data, function(e, route, routeData){
+  this.__getRoute(path, setData.data, function (e, route, routeData) {
 
     if (e) return callback(e);
 
@@ -490,25 +508,25 @@ ElasticProvider.prototype.upsert = function(path, setData, options, dataWasMerge
 
     var elasticMessage = {
       "index": index,
-      "type":  route.type,
+      "type": route.type,
       id: path,
-      body:{
-        doc:{
-          modified:modifiedOn,
-          timestamp:timestamp,
-          path:path,
-          data:setData.data
+      body: {
+        doc: {
+          modified: modifiedOn,
+          timestamp: timestamp,
+          path: path,
+          data: setData.data
         },
-        upsert:{
-          created:modifiedOn,
-          modified:modifiedOn,
-          timestamp:timestamp,
-          path:path,
-          data:setData.data
+        upsert: {
+          created: modifiedOn,
+          modified: modifiedOn,
+          timestamp: timestamp,
+          path: path,
+          data: setData.data
         }
       },
       _source: true,
-      refresh:true
+      refresh: true
     };
 
     if (options.modifiedBy) {
@@ -538,15 +556,15 @@ ElasticProvider.prototype.upsert = function(path, setData, options, dataWasMerge
   });
 };
 
-ElasticProvider.prototype.count = function(message, callback){
+ElasticProvider.prototype.count = function (message, callback) {
 
   var countMessage = {
-    index:message.index,
-    type:message.type
+    index: message.index,
+    type: message.type
   };
 
   if (message.id) countMessage.body = {
-    "query":{
+    "query": {
       "match": {
         "path": message.id
       }
@@ -555,7 +573,7 @@ ElasticProvider.prototype.count = function(message, callback){
 
   else if (message.body) countMessage.body = message.body;
 
-  this.db.count(countMessage, function(e, response){
+  this.db.count(countMessage, function (e, response) {
 
     if (e) return callback(e);
 
@@ -563,22 +581,22 @@ ElasticProvider.prototype.count = function(message, callback){
   });
 };
 
-ElasticProvider.prototype.remove = function(path, callback){
+ElasticProvider.prototype.remove = function (path, callback) {
 
   var _this = this;
 
   var multiple = path.indexOf('*') > -1;
   var deletedCount = 0;
 
-  this.__getRoute(path, function(e, route){
+  this.__getRoute(path, function (e, route) {
 
     var elasticMessage = {
       index: route.index,
-      type:  route.type,
-      refresh:true
+      type: route.type,
+      refresh: true
     };
 
-    var handleResponse = function(e, response){
+    var handleResponse = function (e, response) {
 
       if (e) return callback(e);
 
@@ -595,10 +613,10 @@ ElasticProvider.prototype.remove = function(path, callback){
       callback(null, deleteResponse);
     };
 
-    if (multiple){
+    if (multiple) {
 
       elasticMessage.body = {
-        "query":{
+        "query": {
           "wildcard": {
             "path": path
           }
@@ -609,7 +627,7 @@ ElasticProvider.prototype.remove = function(path, callback){
 
     } else elasticMessage.id = path;
 
-    _this.count(elasticMessage, function(e, count){
+    _this.count(elasticMessage, function (e, count) {
 
       if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
 
@@ -634,7 +652,7 @@ ElasticProvider.prototype.compact = function (callback) {
   return callback();
 };
 
-ElasticProvider.prototype.stop = function(callback){
+ElasticProvider.prototype.stop = function (callback) {
   this.db.close();
   callback();
 };

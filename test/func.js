@@ -1,4 +1,4 @@
-describe('func', function() {
+describe('func', function () {
 
   this.timeout(5000);
 
@@ -8,21 +8,39 @@ describe('func', function() {
 
   var testId = require('shortid').generate();
 
-  var config = require('./private/elastic.json');
+  var config = {
+    "host": "http://localhost:9200",
+    indexes: [{
+      index: "indexsort",
+      body: {
+        "mappings": {
+          "sorttype": {
+            "properties": {
+              "item_sort_id": {"type": "keyword"}
+            }
+          }
+        }
+      }
+    }],
+    dataroutes: [{
+      pattern: "/sorted/*",
+      index: "indexsort"
+    }]
+  };
 
   var serviceInstance = new service(config);
 
-  before('should initialize the service', function(callback) {
+  before('should initialize the service', function (callback) {
 
-    serviceInstance.initialize(function(e){
+    serviceInstance.initialize(function (e) {
 
       if (e) return callback(e);
 
       if (!serviceInstance.happn)
         serviceInstance.happn = {
-          services:{
-            utils:{
-              wildcardMatch:function (pattern, matchTo) {
+          services: {
+            utils: {
+              wildcardMatch: function (pattern, matchTo) {
 
                 var regex = new RegExp(pattern.replace(/[*]/g, '.*'));
                 var matchResult = matchTo.match(regex);
@@ -39,18 +57,18 @@ describe('func', function() {
     });
   });
 
-  after(function(done) {
+  after(function (done) {
 
     serviceInstance.stop(done);
   });
 
-  it('sets data', function(callback) {
+  it('sets data', function (callback) {
 
     var beforeCreatedOrModified = Date.now();
 
-    setTimeout(function(){
+    setTimeout(function () {
 
-      serviceInstance.upsert('/set/' + testId, {data:{"test":"data"}}, {}, false, function(e, response, created, upsert, meta){
+      serviceInstance.upsert('/set/' + testId, {data: {"test": "data"}}, {}, false, function (e, response, created, upsert, meta) {
 
         if (e) return callback(e);
 
@@ -67,17 +85,17 @@ describe('func', function() {
 
   });
 
-  it('gets data', function(callback) {
+  it('gets data', function (callback) {
 
     this.timeout(5000);
 
-    serviceInstance.upsert('/get/' + testId, {data:{"test":"data"}}, {}, false, function(e, response, created){
+    serviceInstance.upsert('/get/' + testId, {data: {"test": "data"}}, {}, false, function (e, response, created) {
 
       if (e) return callback(e);
 
       expect(created.data.test).to.equal("data");
 
-      serviceInstance.find('/get/' + testId, {}, function(e, items){
+      serviceInstance.find('/get/' + testId, {}, function (e, items) {
 
         if (e) return callback(e);
 
@@ -88,17 +106,17 @@ describe('func', function() {
     });
   });
 
-  it('gets data with wildcard', function(callback) {
+  it('gets data with wildcard', function (callback) {
 
-    serviceInstance.upsert('/get/multiple/1/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
+    serviceInstance.upsert('/get/multiple/1/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
       if (e) return callback(e);
 
-      serviceInstance.upsert('/get/multiple/2/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
+      serviceInstance.upsert('/get/multiple/2/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
         if (e) return callback(e);
 
-        serviceInstance.find('/get/multiple/*/' + testId, {}, function(e, response){
+        serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
 
           expect(response.length).to.equal(2);
 
@@ -113,13 +131,13 @@ describe('func', function() {
     });
   });
 
-  it('removes data', function(callback) {
+  it('removes data', function (callback) {
 
-    serviceInstance.upsert('/remove/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
+    serviceInstance.upsert('/remove/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
       if (e) return callback(e);
 
-      serviceInstance.remove('/remove/' + testId, function(e, response){
+      serviceInstance.remove('/remove/' + testId, function (e, response) {
 
         if (e) return callback(e);
 
@@ -132,17 +150,17 @@ describe('func', function() {
     });
   });
 
-  it('removes multiple data', function(callback) {
+  it('removes multiple data', function (callback) {
 
-    serviceInstance.upsert('/remove/multiple/1/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
+    serviceInstance.upsert('/remove/multiple/1/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
       if (e) return callback(e);
 
-      serviceInstance.upsert('/remove/multiple/2/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
+      serviceInstance.upsert('/remove/multiple/2/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
         if (e) return callback(e);
 
-        serviceInstance.remove('/remove/multiple/*', function(e, response){
+        serviceInstance.remove('/remove/multiple/*', function (e, response) {
 
           if (e) return callback(e);
 
@@ -157,7 +175,7 @@ describe('func', function() {
     });
   });
 
-  it('gets data with complex search', function(callback) {
+  it('gets data with complex search', function (callback) {
 
     this.timeout(2000);
 
@@ -190,19 +208,19 @@ describe('func', function() {
     };
 
     // serviceInstance.upsert('/get/multiple/1/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
-    serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end, {data:complex_obj}, {}, false, function (e, put_result) {
+    serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end, {data: complex_obj}, {}, false, function (e, put_result) {
 
       expect(e == null).to.be(true);
 
-      serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end + '/1', {data:complex_obj}, {}, false, function (e, put_result) {
+      serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end + '/1', {data: complex_obj}, {}, false, function (e, put_result) {
 
         expect(e == null).to.be(true);
 
-        serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end + '/2', {data:{"test":"data"}}, {}, false, function (e, put_result) {
+        serviceInstance.upsert('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex/' + test_path_end + '/2', {data: {"test": "data"}}, {}, false, function (e, put_result) {
 
           expect(e == null).to.be(true);
 
-          setTimeout(function(){
+          setTimeout(function () {
 
             serviceInstance.find('/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex*', {
               criteria: criteria1,
@@ -230,11 +248,11 @@ describe('func', function() {
     });
   });
 
-  it('gets no data', function(callback) {
+  it('gets no data', function (callback) {
 
     var random = require('shortid').generate();
 
-    serviceInstance.find('/wontfind/' + random, {}, function(e, response){
+    serviceInstance.find('/wontfind/' + random, {}, function (e, response) {
 
       if (e) return callback(e);
 
@@ -245,25 +263,25 @@ describe('func', function() {
     });
   });
 
-  it('gets data with $not', function(done) {
+  it('gets data with $not', function (done) {
 
     var test_obj = {
-      data:'ok'
+      data: 'ok'
     };
 
     var test_obj1 = {
-      data:'notok'
+      data: 'notok'
     };
 
-    serviceInstance.upsert('/not_get/' + testId + '/ok/1', {data:test_obj}, {}, false, function (e, response) {
+    serviceInstance.upsert('/not_get/' + testId + '/ok/1', {data: test_obj}, {}, false, function (e, response) {
 
       expect(e == null).to.be(true);
 
-      serviceInstance.upsert('/not_get/' + testId + '/_notok_/1' , {data:test_obj1}, {}, false, function (e, response2) {
+      serviceInstance.upsert('/not_get/' + testId + '/_notok_/1', {data: test_obj1}, {}, false, function (e, response2) {
 
         expect(e == null).to.be(true);
 
-        var listCriteria = {criteria: {$not:{}}};
+        var listCriteria = {criteria: {$not: {}}};
 
         listCriteria.criteria.$not['path'] = {$regex: new RegExp(".*_notok_.*")};
 
@@ -280,7 +298,7 @@ describe('func', function() {
     });
   });
 
-  it('does a sort and limit', function(done){
+  it('does a sort and limit', function (done) {
 
     var itemCount = 100;
 
@@ -292,10 +310,10 @@ describe('func', function() {
 
     var async = require('async');
 
-    for (var i = 0; i < itemCount; i++){
+    for (var i = 0; i < itemCount; i++) {
 
       var item = {
-        item_sort_id: i + (Math.floor( Math.random() * 1000000 ))
+        item_sort_id: i + (Math.floor(Math.random() * 1000000))
       };
 
       randomItems.push(item);
@@ -303,11 +321,11 @@ describe('func', function() {
 
     async.eachSeries(randomItems,
 
-      function(item, callback){
+      function (item, callback) {
 
         var testPath = base_path + item.item_sort_id;
 
-        serviceInstance.upsert(testPath, {data:item}, {noPublish: true}, false, function(e){
+        serviceInstance.upsert(testPath, {data: item}, {noPublish: true}, false, function (e) {
 
           if (e) return callback(e);
 
@@ -316,22 +334,25 @@ describe('func', function() {
         });
       },
 
-      function(e){
+      function (e) {
 
         if (e) return done(e);
 
         //ascending
-        randomItems.sort(function(a, b){
+        randomItems.sort(function (a, b) {
 
           return a.item_sort_id - b.item_sort_id;
 
         });
 
-        serviceInstance.find(base_path + '*', {options:{sort:{'data.item_sort_id':1}}, limit:50}, function(e, items){
+        serviceInstance.find(base_path + '*', {
+          options: {sort: {'data.item_sort_id': 1}},
+          limit: 50
+        }, function (e, items) {
 
           if (e) return done(e);
 
-          for (var itemIndex in items){
+          for (var itemIndex in items) {
 
             if (itemIndex >= 50) break;
 
@@ -343,16 +364,19 @@ describe('func', function() {
           }
 
           //ascending
-          randomItems.sort(function(a, b){
+          randomItems.sort(function (a, b) {
 
             return b.item_sort_id - a.item_sort_id;
           });
 
-          serviceInstance.find(base_path + '/*', {options:{sort:{"data.item_sort_id":-1}}, limit:50}, function(e, items){
+          serviceInstance.find(base_path + '/*', {
+            options: {sort: {"data.item_sort_id": -1}},
+            limit: 50
+          }, function (e, items) {
 
             if (e) return done(e);
 
-            for (var itemIndex in items){
+            for (var itemIndex in items) {
 
               if (itemIndex >= 50) break;
 
