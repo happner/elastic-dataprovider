@@ -18,24 +18,117 @@ function ElasticProvider (config){
   if (!config.defaultType) config.defaultType = 'happner';
 
   Object.defineProperty(this, 'config', {value:config});
+
+  Object.defineProperty(this, '__dynamicRoutes', {value:{}});
 }
 
-ElasticProvider.prototype.__getIndex = function(path){
+ElasticProvider.prototype.__createDynamicObject = function(dynamicParts, data){
+
+};
+
+ElasticProvider.prototype.__createDynamicIndex = function(dynamicParts, callback){
+
+};
+
+ElasticProvider.prototype.__prepareDynamicIndex = function(dataStoreRoute, path, data, callback){
 
   var _this = this;
 
-  var index = _this.config.defaultIndex;
+  var indexSegments = dataStoreRoute.pattern.split('/');
+
+  var pathSegments = path.pattern.split('/');
+
+  var dynamicParts = {fields:{}};
+
+  var indexCreated = false;
+
+  indexSegments.every(function(segment, segmentArray, segmentIndex){
+
+    if (segment == "{{index}}") {
+
+      dynamicParts.index = pathSegments[segmentIndex];
+
+      if (_this.__dynamicRoutes[dynamicParts.index] != null){
+
+        dynamicParts = _this.__dynamicRoutes[dynamicParts.index];
+        indexCreated = true;
+        return false;
+      }
+    }
+
+    if (segment == "{{type}}") dynamicParts.type = pathSegments[segmentIndex];
+
+    if (segment.indexOf("{{") == 0){
+
+      var fieldSegment = segment.replace("{{","").replace("}}","");
+
+      var dynamicField = {type:"string", name:fieldSegment};
+
+      if (segment.indexOf(":") > 0) {
+
+        dynamicField.type = fieldSegment.split(":")[1];
+        dynamicField.name = fieldSegment.split(":")[0];
+      }
+
+      dynamicParts.fields.push(dynamicField);
+    }
+
+    return true;
+  });
+
+  if (data) data = _this.__createDynamicObject(dynamicParts, data);
+
+  if (!indexCreated) {
+
+    _this.__createDynamicIndex(dynamicParts, function(e){
+
+      if (e) return callback(e);
+
+      _this.__dynamicRoutes[dynamicParts.index] = dynamicParts;
+
+      callback(null, dynamicParts, data);
+    });
+
+  } else callback(null, dynamicParts, data);
+};
+
+ElasticProvider.prototype.__getRoute = function(path, data, callback){
+
+  var _this = this;
+
+  var route = null;
+
+  if (typeof data == 'function'){
+    callback = data;
+    data = null;
+  }
 
   _this.config.dataroutes.every(function(dataStoreRoute){
 
     if (_this.happn.services.utils.wildcardMatch(dataStoreRoute.pattern, path)){
-      index = dataStoreRoute.index;
+
+      route = dataStoreRoute;
+
       return false;
-    }
-    else return true;
+
+    } else return true;
   });
 
-  return index;
+  if (!route) return callback(new Error('route for path ' + path + ' does not exist'));
+
+  if (route.dynamic){
+
+    _this.__prepareDynamicIndex(route, path, data, function(e, dynamicRoute, data){
+
+      if (e) return callback(e);
+
+      callback(null, dynamicRoute, data);
+    });
+
+  } else {
+
+    return callback(null, {index:route.index, type:_this.config.defaultType}, data);
+  }
 };
 
 
@@ -221,65 +314,69 @@ ElasticProvider.prototype.find = function(path, parameters, callback){
 
   var _this = this;
 
-  var elasticMessage = {
-    "index": _this.__getIndex(path),
-    "type":  _this.config.defaultType,
-    "body":{
-      "query":{
-        "bool":{
-          "must":[]
+  _this.__getRoute(path, function(e, route){
+
+    var elasticMessage = {
+      "index": route.index,
+      "type":  route.type,
+      "body":{
+        "query":{
+          "bool":{
+            "must":[]
+          }
         }
       }
+    };
+
+    if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
+
+    if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
+
+    if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
+
+    var returnType = path.indexOf('*'); //0,1 == array -1 == single
+
+    if (returnType == 0){
+
+      elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
+        "path": '^' + path.replace(/[*]/g, '.*')
+      }});
+    } else if (returnType > 0) {
+
+      elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
+        "path": path.replace(/[*]/g, '.*')
+      }});
+    } else {
+      elasticMessage.body["query"]["bool"]["must"].push({
+        "terms": {
+          "_id": [ path ]
+        }
+      });
     }
-  };
 
-  if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
+    _this.db.search(elasticMessage)
 
-  if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
+      .then(function (resp) {
 
-  if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
+        if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0){
 
-  var returnType = path.indexOf('*'); //0,1 == array -1 == single
+          var found = resp.hits.hits;
 
-  if (returnType == 0){
+          if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
-    elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
-      "path": '^' + path.replace(/[*]/g, '.*')
-    }});
-  } else if (returnType > 0) {
+          var items = _this.__transformResults(found);
 
-    elasticMessage.body["query"]["bool"]["must"].push({"regexp":{
-      "path": path.replace(/[*]/g, '.*')
-    }});
-  } else {
-    elasticMessage.body["query"]["bool"]["must"].push({
-      "terms": {
-        "_id": [ path ]
-      }
-    });
-  }
+          callback(null, items);
 
-  this.db.search(elasticMessage)
+        } else callback(null, []);
 
-    .then(function (resp) {
+      })
+      .catch(function(e){
+        console.log('catching:::' + e.toString());
+        callback(e);
+      });
+  });
 
-      if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0){
-
-        var found = resp.hits.hits;
-
-        if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
-
-        var items = _this.__transformResults(found);
-
-        callback(null, items);
-
-      } else callback(null, []);
-
-    })
-    .catch(function(e){
-      console.log('catching:::' + e.toString());
-      callback(e);
-    })
 };
 
 ElasticProvider.prototype.update = function(criteria, data, options, callback){
@@ -383,54 +480,61 @@ ElasticProvider.prototype.upsert = function(path, setData, options, dataWasMerge
 
   var timestamp = setData.data.timestamp?setData.data.timestamp:modifiedOn;
 
-  var index = _this.__getIndex(path);
-
-  var elasticMessage = {
-    "index": index,
-    "type":  _this.config.defaultType,
-    id: path,
-    body:{
-      doc:{
-        modified:modifiedOn,
-        timestamp:timestamp,
-        path:path,
-        data:setData.data
-      },
-      upsert:{
-        created:modifiedOn,
-        modified:modifiedOn,
-        timestamp:timestamp,
-        path:path,
-        data:setData.data
-      }
-    },
-    _source: true,
-    refresh:true
-  };
-
-  if (options.modifiedBy) {
-
-    elasticMessage.body.doc.modifiedBy = options.modifiedBy;
-    elasticMessage.body.upsert.createdBy = options.modifiedBy;
-  }
-
-  if (setData._tag) elasticMessage.body.doc._tag = setData._tag;
-
-  if (!options) options = {};
-
-  options.upsert = true;
-
-  _this.db.update(elasticMessage, function (e, response) {
+  this.__getRoute(path, setData.data, function(e, route, routeData){
 
     if (e) return callback(e);
 
-    var data = response.get._source;
+    setData.data = routeData;
 
-    var created = null;
+    var index = route.index;
 
-    if (response.result == 'created') created = data;
-    //e, response, created, upsert, meta
-    callback(null, data, created, true, _this.__getMeta(response.get._source));
+    var elasticMessage = {
+      "index": index,
+      "type":  route.type,
+      id: path,
+      body:{
+        doc:{
+          modified:modifiedOn,
+          timestamp:timestamp,
+          path:path,
+          data:setData.data
+        },
+        upsert:{
+          created:modifiedOn,
+          modified:modifiedOn,
+          timestamp:timestamp,
+          path:path,
+          data:setData.data
+        }
+      },
+      _source: true,
+      refresh:true
+    };
+
+    if (options.modifiedBy) {
+
+      elasticMessage.body.doc.modifiedBy = options.modifiedBy;
+      elasticMessage.body.upsert.createdBy = options.modifiedBy;
+    }
+
+    if (setData._tag) elasticMessage.body.doc._tag = setData._tag;
+
+    if (!options) options = {};
+
+    options.upsert = true;
+
+    _this.db.update(elasticMessage, function (e, response) {
+
+      if (e) return callback(e);
+
+      var data = response.get._source;
+
+      var created = null;
+
+      if (response.result == 'created') created = data;
+      //e, response, created, upsert, meta
+      callback(null, data, created, true, _this.__getMeta(response.get._source));
+    });
   });
 };
 
@@ -466,52 +570,55 @@ ElasticProvider.prototype.remove = function(path, callback){
   var multiple = path.indexOf('*') > -1;
   var deletedCount = 0;
 
-  var elasticMessage = {
-    index: _this.__getIndex(path),
-    type:  _this.config.defaultType,
-    refresh:true
-  };
+  this.__getRoute(path, function(e, route){
 
-  var handleResponse = function(e, response){
-
-    if (e) return callback(e);
-
-    var deleteResponse = {
-      "data": {
-        "removed": deletedCount
-      },
-      '_meta': {
-        "timestamp": Date.now(),
-        "path": path
-      }
+    var elasticMessage = {
+      index: route.index,
+      type:  route.type,
+      refresh:true
     };
 
-    callback(null, deleteResponse);
-  };
+    var handleResponse = function(e, response){
 
-  if (multiple){
+      if (e) return callback(e);
 
-    elasticMessage.body = {
-      "query":{
-        "wildcard": {
+      var deleteResponse = {
+        "data": {
+          "removed": deletedCount
+        },
+        '_meta': {
+          "timestamp": Date.now(),
           "path": path
         }
-      }
+      };
+
+      callback(null, deleteResponse);
     };
 
-    //deleteOperation = this.db.deleteByQuery.bind(this.db);
+    if (multiple){
 
-  } else elasticMessage.id = path;
+      elasticMessage.body = {
+        "query":{
+          "wildcard": {
+            "path": path
+          }
+        }
+      };
 
-  _this.count(elasticMessage, function(e, count){
+      //deleteOperation = this.db.deleteByQuery.bind(this.db);
 
-    if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
+    } else elasticMessage.id = path;
 
-    deletedCount = count;
+    _this.count(elasticMessage, function(e, count){
 
-    if (multiple) _this.db.deleteByQuery(elasticMessage, handleResponse);
+      if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
 
-    else _this.db.delete(elasticMessage, handleResponse);
+      deletedCount = count;
+
+      if (multiple) _this.db.deleteByQuery(elasticMessage, handleResponse);
+
+      else _this.db.delete(elasticMessage, handleResponse);
+    });
   });
 };
 

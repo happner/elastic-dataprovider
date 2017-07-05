@@ -280,7 +280,7 @@ describe('func', function() {
     });
   });
 
-  xit('does a sort and limit', function(done){
+  it('does a sort and limit', function(done){
 
     var itemCount = 100;
 
