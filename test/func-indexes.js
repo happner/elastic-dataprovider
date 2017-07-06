@@ -6,7 +6,7 @@ describe('func-indexes', function () {
 
   var service = require('..');
 
-  var testId = require('shortid').generate();
+  var testId = require('uuid').v4().split('-').join('');
 
   var path = require('path');
 
@@ -137,7 +137,7 @@ describe('func-indexes', function () {
 
           var foundItems = [];
 
-          setInterval(function () {
+          setTimeout(function () {
 
             listAll(client, "indextest", "happner", function (e, defaultItems) {
 
@@ -173,11 +173,19 @@ describe('func-indexes', function () {
 
   it('tests dynamic routes', function (done) {
 
-    serviceInstance.upsert('/dynamic/' + testId + '/dynamicType0/dynamicValue0/dynamicValue1', {data: {"test": "dynamic0"}}, {}, false, function (e, response, created) {
+    var now1 = Date.now().toString();
+
+    var now2 = Date.now().toString();
+
+    var path1 = '/dynamic/' + testId + '/dynamicType0/dynamicValue0/' + now1;
+
+    var path2 = '/dynamic/' + testId + '/dynamicType1/dynamicValue0/' + now2
+
+    serviceInstance.upsert(path1, {data: {"test": "dynamic0"}}, {}, false, function (e, response, created) {
 
       if (e) return done(e);
 
-      serviceInstance.upsert('/dynamic/' + testId + '/dynamicType1/dynamicValue0/dynamicValue1', {data: {"test": "dynamic1"}}, {}, false, function (e, response, created) {
+      serviceInstance.upsert(path2, {data: {"test": "dynamic1"}}, {}, false, function (e, response, created) {
 
         if (e) return done(e);
 
@@ -185,7 +193,7 @@ describe('func-indexes', function () {
 
           if (e) return done(e);
 
-          setInterval(function () {
+          setTimeout(function () {
 
             listAll(client, testId, "dynamicType0", function (e, dynamictems0) {
 
@@ -197,12 +205,27 @@ describe('func-indexes', function () {
 
                 expect(dynamictems0.length).to.be(1);
 
+                expect(dynamictems0[0]._index).to.be(testId);
+
+                expect(dynamictems0[0]._type).to.be('dynamicType0');
+
+                expect(dynamictems0[0]._source.path).to.be(path1);
+
+                expect(dynamictems0[0]._source.data['dynamic0']).to.be('dynamicValue0');
+
+                expect(dynamictems0[0]._source.data['dynamic1']).to.be(parseInt(now1));
+
                 expect(dynamictems1.length).to.be(1);
 
-                console.log('dynamictems0:::', dynamictems0);
+                expect(dynamictems1[0]._index).to.be(testId);
 
-                console.log('dynamictems1:::', dynamictems1);
+                expect(dynamictems1[0]._type).to.be('dynamicType1');
 
+                expect(dynamictems1[0]._source.path).to.be(path2);
+
+                expect(dynamictems1[0]._source.data['dynamic0']).to.be('dynamicValue0');
+
+                expect(dynamictems1[0]._source.data['dynamic1']).to.be(parseInt(now2));
 
                 done();
               });

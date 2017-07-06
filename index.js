@@ -22,12 +22,71 @@ function ElasticProvider(config) {
   Object.defineProperty(this, '__dynamicRoutes', {value: {}});
 }
 
+ElasticProvider.prototype.__wildcardMatch = function (pattern, matchTo) {
+
+  var regex = new RegExp(pattern.replace(/[*]/g, '.*'));
+  var matchResult = matchTo.match(regex);
+
+  if (matchResult) return true;
+
+  return false;
+}
+
 ElasticProvider.prototype.__createDynamicObject = function (dynamicParts, data) {
 
+  try{
+
+    Object.keys(dynamicParts.values).forEach(function(dynamicValueKey){
+
+      if (dynamicParts.values[dynamicValueKey] == null) return;
+
+      var value = dynamicParts.values[dynamicValueKey];
+
+      dynamicParts.fields.forEach(function(dynamicField){
+
+        if (dynamicField.name == dynamicValueKey){
+
+          if (['integer', 'date'].indexOf(dynamicField.type) > -1)
+            value = parseInt(value);
+
+          else if (['long', 'double', 'float', 'half_float', 'scaled_float'].indexOf(dynamicField.type) > -1)
+            value = parseFloat(value);
+
+          else if (dynamicField.type == 'boolean') value = !!(value==true||value==1);
+
+          else if (dynamicField.type != 'string') throw new Error('unable to create dynamic value for type: ' + dynamicField.type + ', can only do basic types: string, integer, date (utc only), long, double, float, half_float, scaled_float');
+        }
+      });
+
+      data[dynamicValueKey] = value;
+    });
+
+    return data;
+
+  }catch(e){
+
+    throw new Error('failed to generate dynamic object', e);
+  }
 };
 
 ElasticProvider.prototype.__createDynamicIndex = function (dynamicParts, callback) {
 
+  var _this = this;
+
+  if (/[A-Z-+_*$@#$%&!]/.test(dynamicParts.index)) return callback(new Error('bad dynamic index name: ' + dynamicParts.index + ' must be lowercase with no special characterssuch as A-Z-+_*$@#$%&!'));
+
+  var indexJSON = _this.__buildIndexObj({
+      index: dynamicParts.index,
+      type: dynamicParts.type
+    }
+  );
+
+  dynamicParts.fields.forEach(function(dynamicField){
+
+    indexJSON.body.mappings[dynamicParts.type].properties[dynamicField.name] = {type:dynamicField.type};
+  });
+
+  _this.__createIndex(dynamicParts.index, indexJSON, callback);
 };
 
 ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path, data, callback) {
@@ -36,29 +95,38 @@ ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path
 
   var indexSegments = dataStoreRoute.pattern.split('/');
 
-  var pathSegments = path.pattern.split('/');
+  var pathSegments = path.split('/');
 
-  var dynamicParts = {fields: {}};
+  var dynamicParts = {fields: [], values:{}};
 
   var indexCreated = false;
 
-  indexSegments.every(function (segment, segmentArray, segmentIndex) {
+  var createdAlready = function(){
+
+    if (dynamicParts.index != null && dynamicParts.type != null && _this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type] != null) {
+      indexCreated = true;
+      return true;
+    }
+    return false;
+  };
+
+  indexSegments.every(function (segment, segmentIndex) {
 
     if (segment == "{{index}}") {
 
       dynamicParts.index = pathSegments[segmentIndex];
 
-      if (_this.__dynamicRoutes[dynamicParts.index] != null) {
-
-        dynamicParts = _this.__dynamicRoutes[dynamicParts.index];
-        indexCreated = true;
-        return false;
-      }
+      return !createdAlready();
     }
 
-    if (segment == "{{type}}") dynamicParts.type = pathSegments[segmentIndex];
+    else if (segment == "{{type}}") {
 
-    if (segment.indexOf("{{") == 0) {
+      dynamicParts.type = pathSegments[segmentIndex];
+
+      return !createdAlready();
+    }
+
+    else if (segment.indexOf("{{") == 0) {
 
       var fieldSegment = segment.replace("{{", "").replace("}}", "");
 
@@ -71,6 +139,7 @@ ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path
       }
 
       dynamicParts.fields.push(dynamicField);
+      dynamicParts.values[dynamicField.name] = pathSegments[segmentIndex];
     }
 
     return true;
@@ -84,7 +153,7 @@ ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path
 
       if (e) return callback(e);
 
-      _this.__dynamicRoutes[dynamicParts.index] = dynamicParts;
+      _this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type] = dynamicParts;
 
       callback(null, dynamicParts, data);
     });
@@ -105,7 +174,13 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
 
   _this.config.dataroutes.every(function (dataStoreRoute) {
 
-    if (_this.happn.services.utils.wildcardMatch(dataStoreRoute.pattern, path)) {
+    var pattern = dataStoreRoute.pattern;
+
+    if (dataStoreRoute.dynamic){
+      pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
+    }
+
+    if (_this.__wildcardMatch(pattern, path)) {
 
       route = dataStoreRoute;
 
@@ -131,10 +206,6 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
   }
 };
 
-
-ElasticProvider.prototype.wildcardMatch = function (pattern, matchTo) {
-  return matchTo.match(new RegExp(pattern.replace(/[*]/g, '.*'))) != null;
-};
 
 ElasticProvider.prototype.__createIndex = function (index, indexConfig, callback) {
 
@@ -190,13 +261,12 @@ ElasticProvider.prototype.__buildIndexObj = function (indexConfig) {
 
   //add any additional mappings
   if (indexConfig.body && indexConfig.body.mappings && indexConfig.body.mappings[indexConfig.type])
+
     Object.keys(indexConfig.body.mappings[indexConfig.type].properties).forEach(function (fieldName) {
 
-      if (indexJSON.body.mappings[indexConfig.type][fieldName] == null)
-        indexJSON.body.mappings[indexConfig.type][fieldName] = indexJSON.body.mappings[indexConfig.type][fieldName];
+      if (indexJSON.body.mappings[indexConfig.type].properties[fieldName] == null)
+        indexJSON.body.mappings[indexConfig.type].properties[fieldName] = indexConfig.body.mappings[indexConfig.type].properties[fieldName];
     });
-
-  console.log('index JSON:::', JSON.stringify(indexJSON, null, 2));
 
   return indexJSON;
 };
@@ -277,7 +347,14 @@ ElasticProvider.prototype.initialize = function (callback) {
 
 ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
-  this.find(criteria, fields, function (e, results) {
+  var path = criteria.path;
+
+  delete criteria.path;
+
+  console.log('in findOne:::', path, {options:fields, criteria:criteria});
+
+  this.find(path, {options:fields, criteria:criteria}, function (e, results) {
+
     if (e) return callback(e);
 
     callback(null, results[0]);
@@ -303,32 +380,15 @@ ElasticProvider.prototype.__filter = function (criteria, items) {
   }
 };
 
-ElasticProvider.prototype.__escapePath = function (path) {
-
-  var escapedPath = path;
-
-  test = "simon@bishop@we";
-
-  var matches = path.match(/([~!@#$%^&()\-+={}\[\]\|\\:;'<>,.\? ])+/g);
-  var escaped = {};
-
-  if (matches && matches.length > 0)
-    matches.forEach(function (match) {
-
-      if (!escaped[match]) {
-        escapedPath = escapedPath.split(match).join("/" + match);
-        escaped[match] = true;
-      }
-    });
-
-  return escapedPath;
-};
-
 ElasticProvider.prototype.find = function (path, parameters, callback) {
 
   var _this = this;
 
+  console.log('finding:::', path, parameters);
+
   _this.__getRoute(path, function (e, route) {
+
+    console.log('have route:::', path, route);
 
     var elasticMessage = {
       "index": route.index,
@@ -343,6 +403,8 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
     };
 
     if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
+
+    console.log('converted opts:::', parameters.options);
 
     if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
 
@@ -372,6 +434,8 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
       });
     }
 
+    console.log('seraching now:::', elasticMessage);
+
     _this.db.search(elasticMessage)
 
       .then(function (resp) {
@@ -382,7 +446,11 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
           if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
+          console.log('filtered:::');
+
           var items = _this.__transformResults(found);
+
+          console.log('xformed:::', items, callback);
 
           callback(null, items);
 
@@ -390,7 +458,7 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
       })
       .catch(function (e) {
-        console.log('catching:::' + e.toString());
+        console.log('error:::', e);
         callback(e);
       });
   });
@@ -586,6 +654,7 @@ ElasticProvider.prototype.remove = function (path, callback) {
   var _this = this;
 
   var multiple = path.indexOf('*') > -1;
+
   var deletedCount = 0;
 
   this.__getRoute(path, function (e, route) {

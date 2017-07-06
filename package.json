@@ -7,13 +7,14 @@
   "devDependencies": {
     "assert": "^1.4.0",
     "chai": "^3.5.0",
+    "expect.js": "^0.3.1",
     "gulp": "*",
+    "happn-3": "^1.13.3",
+    "happner-2": "2.7.5",
     "json-from-schema": "1.10.0",
     "mocha": "*",
-    "rimraf": "^2.4.4",
-    "happner-2": "2.7.5",
-    "expect.js": "^0.3.1",
-    "node-uuid": "^1.4.7"
+    "node-uuid": "^1.4.7",
+    "rimraf": "^2.4.4"
   },
   "private": true,
   "dependencies": {
@@ -24,6 +25,7 @@
     "shortid": "^2.2.8",
     "sift": "^3.2.6",
     "traverse": "^0.6.6",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "uuid": "^3.1.0"
   }
 }

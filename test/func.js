@@ -10,21 +10,31 @@ describe('func', function () {
 
   var config = {
     "host": "http://localhost:9200",
-    indexes: [{
-      index: "indexsort",
-      body: {
-        "mappings": {
-          "sorttype": {
-            "properties": {
-              "item_sort_id": {"type": "keyword"}
+    indexes: [
+      {
+        index: "happner",
+        body: {
+          "mappings": {}
+        }
+      },
+      {
+        index: "sortandlimitindex",
+        body: {
+          "mappings": {
+            "happner": {
+              "properties": {
+                "data.item_sort_id": {"type": "integer"}
+              }
             }
           }
         }
-      }
     }],
     dataroutes: [{
-      pattern: "/sorted/*",
-      index: "indexsort"
+      pattern: "/sort_and_limit/*",
+      index: "sortandlimitindex"
+    },{
+      pattern: "*",
+      index: "happner"
     }]
   };
 
@@ -198,6 +208,7 @@ describe('func', function () {
     };
 
     var options1 = {
+      sort: {'path': 1},
       limit: 1
     };
 
@@ -227,7 +238,7 @@ describe('func', function () {
               options: options1
             }, function (e, search_result) {
 
-              expect(e == null).to.be(true);
+              if (e) return callback(e);
 
               expect(search_result.length == 1).to.be(true);
 
@@ -235,7 +246,9 @@ describe('func', function () {
                 criteria: criteria2,
                 options: options2
               }, function (e, search_result) {
-                expect(e == null).to.be(true);
+
+                if (e) return callback(e);
+
                 expect(search_result.length == 2).to.be(true);
 
                 callback(e);
@@ -342,7 +355,6 @@ describe('func', function () {
         randomItems.sort(function (a, b) {
 
           return a.item_sort_id - b.item_sort_id;
-
         });
 
         serviceInstance.find(base_path + '*', {
