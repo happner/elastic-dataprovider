@@ -643,7 +643,7 @@ describe('sanity-happn', function () {
   });
 
 
-  it('should tag some test data', function (callback) {
+  it.only('should tag some test data', function (callback) {
 
     var randomTag = require('shortid').generate();
 
@@ -670,9 +670,9 @@ describe('sanity-happn', function () {
 
         if (e) return callback(e);
 
-        ////////////////////console.log('merge tag results');
+        console.log('merge tag results');
         ////////////////////console.log(e);
-        ////////////////////console.log(result);
+        console.log(result);
 
         expect(result.data.property1).to.be('property1');
         expect(result.data.property2).to.be('property2');

@@ -179,7 +179,7 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
     if (dataStoreRoute.dynamic){
       pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
     }
-    
+
     if (_this.__wildcardMatch(pattern, path)) {
 
       route = dataStoreRoute;
@@ -352,11 +352,17 @@ ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
   delete criteria.path;
 
+  var _this = this;
+
   this.find(path, {options:fields, criteria:criteria}, function (e, results) {
 
     if (e) return callback(e);
 
-    callback(null, results[0]);
+    if (results.length > 0){
+
+      callback(null, _this.transform(results[0]));
+
+    } else callback(null, null);
   })
 };
 
@@ -459,17 +465,11 @@ ElasticProvider.prototype.update = function (criteria, data, options, callback) 
 
 ElasticProvider.prototype.transform = function (dataObj, meta) {
 
-  var elasticMeta = {
-    _type:dataObj._type,
-    _id:dataObj._id,
-    _score:dataObj._score
-  };
+  var elasticMetaId = dataObj._id;
 
   if (dataObj._source) dataObj = dataObj._source;
 
-  dataObj._id = elasticMeta._id;
-  dataObj._type = elasticMeta._type;
-  dataObj._score = elasticMeta._score;
+  dataObj._id = elasticMetaId != null?elasticMetaId:dataObj.path;
 
   var transformed = {data:dataObj.data};
 
@@ -498,6 +498,8 @@ ElasticProvider.prototype.transform = function (dataObj, meta) {
   }
 
   if (dataObj._tag) transformed._meta.tag = dataObj._tag;
+
+  console.log('XFORMED:::', transformed);
 
   return transformed;
 };
@@ -659,8 +661,11 @@ ElasticProvider.prototype.upsert = function (path, setData, options, dataWasMerg
 
       var created = null;
 
-      if (response.result == 'created') created = data;
+      if (response.result == 'created') created = _this.transform(data);
       //e, response, created, upsert, meta
+
+      console.log('CREATED:::', created);
+
       callback(null, data, created, true, _this.__getMeta(response.get._source));
     });
   });
