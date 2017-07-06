@@ -351,8 +351,6 @@ ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
   delete criteria.path;
 
-  console.log('in findOne:::', path, {options:fields, criteria:criteria});
-
   this.find(path, {options:fields, criteria:criteria}, function (e, results) {
 
     if (e) return callback(e);
@@ -384,11 +382,7 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
   var _this = this;
 
-  console.log('finding:::', path, parameters);
-
   _this.__getRoute(path, function (e, route) {
-
-    console.log('have route:::', path, route);
 
     var elasticMessage = {
       "index": route.index,
@@ -403,8 +397,6 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
     };
 
     if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
-
-    console.log('converted opts:::', parameters.options);
 
     if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
 
@@ -434,8 +426,6 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
       });
     }
 
-    console.log('seraching now:::', elasticMessage);
-
     _this.db.search(elasticMessage)
 
       .then(function (resp) {
@@ -446,19 +436,13 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
           if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
-          console.log('filtered:::');
 
-          var items = _this.__transformResults(found);
-
-          console.log('xformed:::', items, callback);
-
-          callback(null, items);
+          callback(null, found);
 
         } else callback(null, []);
 
       })
       .catch(function (e) {
-        console.log('error:::', e);
         callback(e);
       });
   });
@@ -470,27 +454,82 @@ ElasticProvider.prototype.update = function (criteria, data, options, callback) 
   return this.db.update(criteria, data, options, callback);
 };
 
-ElasticProvider.prototype.__transformResult = function (result) {
+ElasticProvider.prototype.transform = function (dataObj, meta) {
 
-  var transformed = {};
+  var elasticMeta = {
+    _type:dataObj._type,
+    _id:dataObj._id,
+    _score:dataObj._score
+  };
 
-  transformed._meta = this.__getMeta(result._source);
-  transformed.data = result._source.data;
+  if (dataObj._source) dataObj = dataObj._source;
+
+  dataObj._id = elasticMeta._id;
+  dataObj._type = elasticMeta._type;
+  dataObj._score = elasticMeta._score;
+
+  var transformed = {data:dataObj.data};
+
+  if (!meta) {
+
+    meta = {};
+
+    if (dataObj.created) meta.created = dataObj.created;
+
+    if (dataObj.modified) meta.modified = dataObj.modified;
+
+    if (dataObj.modifiedBy) meta.modifiedBy = dataObj.modifiedBy;
+
+    if (dataObj.createdBy) meta.createdBy = dataObj.createdBy;
+  }
+
+  transformed._meta = meta;
+
+  if (!dataObj._id){
+
+    transformed._meta._id = transformed.path;
+  } else {
+
+    transformed._meta.path = dataObj._id;
+    transformed._meta._id = dataObj._id;
+  }
+
+  if (dataObj._tag) transformed._meta.tag = dataObj._tag;
 
   return transformed;
 };
 
-ElasticProvider.prototype.__transformResults = function (results) {
+ElasticProvider.prototype.transformAll = function (items) {
 
   var _this = this;
-  var transformed = [];
 
-  results.forEach(function (result) {
-    transformed.push(_this.__transformResult(result));
-  });
+  return items.map(function (item) {
 
-  return transformed;
+    return _this.transform(item, null);
+  })
 };
+
+// ElasticProvider.prototype.transform = function (result, meta) {
+//
+//   var transformed = {};
+//
+//   transformed._meta = meta;
+//   transformed.data = result._source.data;
+//
+//   return transformed;
+// };
+//
+// ElasticProvider.prototype.transformAll = function (results) {
+//
+//   var _this = this;
+//   var transformed = [];
+//
+//   results.forEach(function (result) {
+//     transformed.push(_this.transform(result));
+//   });
+//
+//   return transformed;
+// };
 
 ElasticProvider.prototype.__parseFields = function (fields) {
 
