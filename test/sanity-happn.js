@@ -5,7 +5,9 @@ describe('sanity-happn', function () {
   var service = happn.service;
   var async = require('async');
   var happnInstance = null;
-  var test_id;
+
+  var test_id = Date.now() + '_' + require('shortid').generate();
+
   var path = require('path');
 
   this.timeout(5000);
@@ -31,11 +33,12 @@ describe('sanity-happn', function () {
                     }
                   },
                   {
-                    index: "sortandlimitindex",
+                    index: "sortedandlimitedindex1",
                     body: {
                       "mappings": {
                         "happner": {
                           "properties": {
+                            "data.field1": {"type": "keyword"},
                             "data.item_sort_id": {"type": "integer"}
                           }
                         }
@@ -43,8 +46,8 @@ describe('sanity-happn', function () {
                     }
                   }],
                 dataroutes: [{
-                  pattern: "/sort_and_limit/*",
-                  index: "sortandlimitindex"
+                  pattern: "/1_eventemitter_embedded_sanity/" + test_id + "/testsubscribe/data/complex*",
+                  index: "sortedandlimitedindex1"
                 },{
                   pattern: "*",
                   index: "happner"
@@ -58,8 +61,6 @@ describe('sanity-happn', function () {
   };
 
   before('should initialize the service', function (callback) {
-
-    test_id = Date.now() + '_' + require('shortid').generate();
 
     try {
 
@@ -773,10 +774,6 @@ describe('sanity-happn', function () {
             ////////////////////////console.log('new data results');
             ////////////////////////console.log(results);
             expect(results.property1 == 'property1').to.be(true);
-
-            if (mode != 'embedded')
-              expect(results.payload[0].created == results.payload[0].modified).to.be(true);
-
             callback(e);
           });
         } else

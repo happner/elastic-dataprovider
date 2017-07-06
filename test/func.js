@@ -204,7 +204,7 @@ describe('func', function () {
       $or: [{"data.regions": {$in: ['North', 'South', 'East', 'West']}},
         {"data.towns": {$in: ['North.Cape Town', 'South.East London']}},
         {"data.categories": {$in: ["Action", "History"]}}],
-      "data.keywords": {$in: ["bass", "Penny Siopis"]}
+        "data.keywords": {$in: ["bass", "Penny Siopis"]}
     };
 
     var options1 = {

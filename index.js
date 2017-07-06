@@ -179,7 +179,7 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
     if (dataStoreRoute.dynamic){
       pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
     }
-
+    
     if (_this.__wildcardMatch(pattern, path)) {
 
       route = dataStoreRoute;
@@ -187,6 +187,7 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
       return false;
 
     } else return true;
+
   });
 
   if (!route) return callback(new Error('route for path ' + path + ' does not exist'));
@@ -383,6 +384,8 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
   var _this = this;
 
   _this.__getRoute(path, function (e, route) {
+
+    if (e) return callback(e);
 
     var elasticMessage = {
       "index": route.index,
