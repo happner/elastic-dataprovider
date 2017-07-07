@@ -9,7 +9,7 @@
     "chai": "^3.5.0",
     "expect.js": "^0.3.1",
     "gulp": "*",
-    "happn-3": "^1.13.3",
+    "happn-3": "^1.13.4",
     "happner-2": "2.7.5",
     "json-from-schema": "1.10.0",
     "mocha": "*",
@@ -20,12 +20,12 @@
   "dependencies": {
     "async": "1.5.2",
     "bluebird": "2.10.2",
-    "elasticsearch": "^13.2.0",
-    "happn-logger": "^0.0.1",
-    "shortid": "^2.2.8",
-    "sift": "^3.2.6",
-    "traverse": "^0.6.6",
-    "underscore": "^1.8.3",
-    "uuid": "^3.1.0"
+    "elasticsearch": "13.2.0",
+    "happn-logger": "0.0.1",
+    "shortid": "2.2.8",
+    "sift": "3.2.6",
+    "traverse": "0.6.6",
+    "underscore": "1.8.3",
+    "uuid": "3.1.0"
   }
 }
