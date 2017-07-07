@@ -25,12 +25,13 @@ function ElasticProvider(config) {
 ElasticProvider.prototype.__wildcardMatch = function (pattern, matchTo) {
 
   var regex = new RegExp(pattern.replace(/[*]/g, '.*'));
+
   var matchResult = matchTo.match(regex);
 
   if (matchResult) return true;
 
   return false;
-}
+};
 
 ElasticProvider.prototype.__createDynamicObject = function (dynamicParts, data) {
 
@@ -161,6 +162,21 @@ ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path
   } else callback(null, dynamicParts, data);
 };
 
+ElasticProvider.prototype.__matchRoute = function(path, pattern){
+
+
+  if (this.__wildcardMatch(pattern, path)) return true;
+
+  else {
+
+    var baseTagPath = '/_TAGS';
+
+    if (path.substring(0, 1) != '/') baseTagPath += '/';
+
+    return this.__wildcardMatch(baseTagPath + pattern, path);
+  }
+};
+
 ElasticProvider.prototype.__getRoute = function (path, data, callback) {
 
   var _this = this;
@@ -180,7 +196,7 @@ ElasticProvider.prototype.__getRoute = function (path, data, callback) {
       pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
     }
 
-    if (_this.__wildcardMatch(pattern, path)) {
+    if (_this.__matchRoute(path, pattern)) {
 
       route = dataStoreRoute;
 
@@ -265,8 +281,11 @@ ElasticProvider.prototype.__buildIndexObj = function (indexConfig) {
 
     Object.keys(indexConfig.body.mappings[indexConfig.type].properties).forEach(function (fieldName) {
 
-      if (indexJSON.body.mappings[indexConfig.type].properties[fieldName] == null)
-        indexJSON.body.mappings[indexConfig.type].properties[fieldName] = indexConfig.body.mappings[indexConfig.type].properties[fieldName];
+      var mappingFieldName = fieldName;
+
+      if (indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] == null){
+        indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] = indexConfig.body.mappings[indexConfig.type].properties[fieldName];
+      }
     });
 
   return indexJSON;
@@ -346,13 +365,38 @@ ElasticProvider.prototype.initialize = function (callback) {
   }
 };
 
+ElasticProvider.prototype.__partialTransformAll = function(dataItems){
+
+  var _this = this;
+
+  return dataItems.map(function(dataItem){
+    return _this.__partialTransform(dataItem);
+  })
+};
+
+ElasticProvider.prototype.__partialTransform = function(dataItem, index, type){
+
+  return {
+    _id:dataItem._id?dataItem._id:dataItem._source.path,
+    _index:dataItem._index?dataItem._index:index,
+    _type:dataItem._type?dataItem._type:type,
+    _score:dataItem._score,
+    _tag:dataItem._source._tag,
+    created:dataItem._source.created,
+    deleted:dataItem._source.deleted,
+    modified:dataItem._source.modified,
+    createdBy:dataItem._source.createdBy,
+    modifiedBy:dataItem._source.modifiedBy,
+    deletedBy:dataItem._source.deletedBy,
+    data:dataItem._source.data
+  };
+};
+
 ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
   var path = criteria.path;
 
   delete criteria.path;
-
-  var _this = this;
 
   this.find(path, {options:fields, criteria:criteria}, function (e, results) {
 
@@ -360,7 +404,7 @@ ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
     if (results.length > 0){
 
-      callback(null, _this.transform(results[0]));
+      callback(null, results[0]);//already partially transformed
 
     } else callback(null, null);
   })
@@ -445,8 +489,7 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
           if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
-
-          callback(null, found);
+          callback(null, _this.__partialTransformAll(found));
 
         } else callback(null, []);
 
@@ -463,13 +506,8 @@ ElasticProvider.prototype.update = function (criteria, data, options, callback) 
   return this.db.update(criteria, data, options, callback);
 };
 
+
 ElasticProvider.prototype.transform = function (dataObj, meta) {
-
-  var elasticMetaId = dataObj._id;
-
-  if (dataObj._source) dataObj = dataObj._source;
-
-  dataObj._id = elasticMetaId != null?elasticMetaId:dataObj.path;
 
   var transformed = {data:dataObj.data};
 
@@ -488,18 +526,12 @@ ElasticProvider.prototype.transform = function (dataObj, meta) {
 
   transformed._meta = meta;
 
-  if (!dataObj._id){
+  if (!dataObj._id) dataObj._id = dataObj.path;
 
-    transformed._meta._id = transformed.path;
-  } else {
-
-    transformed._meta.path = dataObj._id;
-    transformed._meta._id = dataObj._id;
-  }
+  transformed._meta.path = dataObj._id;
+  transformed._meta._id = dataObj._id;
 
   if (dataObj._tag) transformed._meta.tag = dataObj._tag;
-
-  console.log('XFORMED:::', transformed);
 
   return transformed;
 };
@@ -514,28 +546,6 @@ ElasticProvider.prototype.transformAll = function (items) {
   })
 };
 
-// ElasticProvider.prototype.transform = function (result, meta) {
-//
-//   var transformed = {};
-//
-//   transformed._meta = meta;
-//   transformed.data = result._source.data;
-//
-//   return transformed;
-// };
-//
-// ElasticProvider.prototype.transformAll = function (results) {
-//
-//   var _this = this;
-//   var transformed = [];
-//
-//   results.forEach(function (result) {
-//     transformed.push(_this.transform(result));
-//   });
-//
-//   return transformed;
-// };
-
 ElasticProvider.prototype.__parseFields = function (fields) {
 
   traverse(fields).forEach(function (value) {
@@ -548,6 +558,7 @@ ElasticProvider.prototype.__parseFields = function (fields) {
       if (_thisNode.parent && Array.isArray(_thisNode.parent.node)) return;
 
       if (typeof _thisNode.key == 'string') {
+
         //ignore directives
         if (_thisNode.key.indexOf('$') == 0) return;
 
@@ -576,9 +587,11 @@ ElasticProvider.prototype.__parseFields = function (fields) {
           return _thisNode.remove();
         }
 
-        if (_thisNode.key.indexOf('data.') == 0) _thisNode.parent.node['_source.' + _thisNode.key] = value;
+        var propertyKey = _thisNode.key;
+
+        if (propertyKey.indexOf('data.') == 0) _thisNode.parent.node['_source.' + propertyKey] = value;
         //prepend with data.
-        else _thisNode.parent.node['_source.data.' + _thisNode.key] = value;
+        else _thisNode.parent.node['_source.data.' + propertyKey] = value;
 
         return _thisNode.remove();
       }
@@ -643,16 +656,21 @@ ElasticProvider.prototype.upsert = function (path, setData, options, dataWasMerg
 
     if (options.modifiedBy) {
 
+      elasticMessage.body.upsert.modifiedBy = options.modifiedBy;
       elasticMessage.body.doc.modifiedBy = options.modifiedBy;
       elasticMessage.body.upsert.createdBy = options.modifiedBy;
     }
 
-    if (setData._tag) elasticMessage.body.doc._tag = setData._tag;
+    if (setData._tag) {
+
+      elasticMessage.body.doc._tag = setData._tag;
+      elasticMessage.body.upsert._tag = setData._tag;
+    }
 
     if (!options) options = {};
 
     options.upsert = true;
-
+    
     _this.db.update(elasticMessage, function (e, response) {
 
       if (e) return callback(e);
@@ -661,10 +679,8 @@ ElasticProvider.prototype.upsert = function (path, setData, options, dataWasMerg
 
       var created = null;
 
-      if (response.result == 'created') created = _this.transform(data);
+      if (response.result == 'created') created = _this.__partialTransform(response.get, index, route.type);
       //e, response, created, upsert, meta
-
-      console.log('CREATED:::', created);
 
       callback(null, data, created, true, _this.__getMeta(response.get._source));
     });

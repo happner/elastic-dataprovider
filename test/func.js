@@ -279,20 +279,20 @@ describe('func', function () {
   it('gets data with $not', function (done) {
 
     var test_obj = {
-      data: 'ok'
+      value: 'ok'
     };
 
     var test_obj1 = {
-      data: 'notok'
+      value: 'notok'
     };
 
     serviceInstance.upsert('/not_get/' + testId + '/ok/1', {data: test_obj}, {}, false, function (e, response) {
 
-      expect(e == null).to.be(true);
+      if (e) return done(e);
 
       serviceInstance.upsert('/not_get/' + testId + '/_notok_/1', {data: test_obj1}, {}, false, function (e, response2) {
 
-        expect(e == null).to.be(true);
+        if (e) return done(e);
 
         var listCriteria = {criteria: {$not: {}}};
 
@@ -313,7 +313,9 @@ describe('func', function () {
 
   it('does a sort and limit', function (done) {
 
-    var itemCount = 100;
+    var ITEMS = 20;
+
+    var LIMIT = 10;
 
     var randomItems = [];
 
@@ -323,7 +325,7 @@ describe('func', function () {
 
     var async = require('async');
 
-    for (var i = 0; i < itemCount; i++) {
+    for (var i = 0; i < ITEMS; i++) {
 
       var item = {
         item_sort_id: i + (Math.floor(Math.random() * 1000000))
@@ -359,7 +361,7 @@ describe('func', function () {
 
         serviceInstance.find(base_path + '*', {
           options: {sort: {'data.item_sort_id': 1}},
-          limit: 50
+          limit: LIMIT
         }, function (e, items) {
 
           if (e) return done(e);
@@ -368,11 +370,11 @@ describe('func', function () {
 
             if (itemIndex >= 50) break;
 
-            var item_from_mongo = items[itemIndex];
+            var item_from_elastic = items[itemIndex];
 
             var item_from_array = randomItems[itemIndex];
 
-            if (item_from_mongo.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('ascending sort failed'));
+            if (item_from_elastic.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('ascending sort failed'));
           }
 
           //ascending

@@ -369,39 +369,6 @@ describe('sanity-happn', function () {
   });
 
 
-  // it('should contain the same payload between a merge and a normal store for first store', function (done) {
-  //   var object = {
-  //     param1: 10,
-  //     param2: 20
-  //   };
-  //   var firstTime = true;
-  //
-  //   listenerclient.on('mergeTest/object', {
-  //     event_type: 'set',
-  //     count: 2
-  //   }, function (message) {
-  //     expect(message).to.eql(object);
-  //     if (firstTime) {
-  //       firstTime = false;
-  //       return;
-  //     }
-  //     done();
-  //   }, function (err) {
-  //     expect(err).to.not.be.ok();
-  //     publisherclient.set('mergeTest/object', object, {
-  //       merge: true
-  //     }, function (err) {
-  //       expect(err).to.not.be.ok();
-  //       publisherclient.set('mergeTest/object', object, {
-  //         merge: true
-  //       }, function (err) {
-  //         expect(err).to.not.be.ok();
-  //       });
-  //     });
-  //   })
-  // });
-
-
   it('should search for a complex object', function (callback) {
 
     var test_path_end = require('shortid').generate();
@@ -417,26 +384,26 @@ describe('sanity-happn', function () {
 
     var criteria1 = {
       $or: [{
-        "regions": {
+        "data.regions": {
           $in: ['North', 'South', 'East', 'West']
         }
       }, {
-        "towns": {
+        "data.towns": {
           $in: ['North.Cape Town', 'South.East London']
         }
       }, {
-        "categories": {
+        "data.categories": {
           $in: ["Action", "History"]
         }
       }],
-      "keywords": {
+      "data.keywords": {
         $in: ["bass", "Penny Siopis"]
       }
     };
 
     var options1 = {
       sort: {
-        "field1": 1
+        "data.field1": 1
       },
       limit: 1
     };
@@ -446,7 +413,7 @@ describe('sanity-happn', function () {
     var options2 = {
       fields: {towns:1, keywords:1},
       sort: {
-        "field1": 1
+        "data.field1": 1
       },
       limit: 2
     };
@@ -464,7 +431,7 @@ describe('sanity-happn', function () {
           criteria: criteria1,
           options: options1
         }, function (e, search_result) {
-
+          
           if (e) return callback(e);
 
           expect(search_result.length == 1).to.be(true);
@@ -505,12 +472,12 @@ describe('sanity-happn', function () {
     var test_path_end = require('shortid').generate();
 
     var complex_obj = {
-      regions: ['North', 'South'],
-      towns: ['North.Cape Town'],
-      categories: ['Action', 'History'],
-      subcategories: ['Action.angling', 'History.art'],
-      keywords: ['bass', 'Penny Siopis'],
-      field1: 'field1'
+      "dregions": ['North', 'South'],
+      "towns": ['North.Cape Town'],
+      "categories": ['Action', 'History'],
+      "subcategories": ['Action.angling', 'History.art'],
+      "keywords": ['bass', 'Penny Siopis'],
+      "field1": 'field1'
     };
 
     var from = Date.now();
@@ -534,7 +501,7 @@ describe('sanity-happn', function () {
         var options = {
           fields:null,
           sort: {
-            "field1": 1
+            "data.field1": 1
           },
           limit: 2
         };
@@ -634,16 +601,14 @@ describe('sanity-happn', function () {
           callback();
 
         });
-
       });
-
     } catch (e) {
       callback(e);
     }
   });
 
 
-  it.only('should tag some test data', function (callback) {
+  it('should tag some test data', function (callback) {
 
     var randomTag = require('shortid').generate();
 
@@ -655,9 +620,6 @@ describe('sanity-happn', function () {
       noPublish: true
     }, function (e, result) {
 
-      ////////////////////console.log('did set');
-      ////////////////////console.log([e, result]);
-
       if (e) return callback(e);
 
       publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/test/tag', null, {
@@ -666,51 +628,47 @@ describe('sanity-happn', function () {
         noPublish: true
       }, function (e, result) {
 
-        //console.log(e);
-
         if (e) return callback(e);
-
-        console.log('merge tag results');
-        ////////////////////console.log(e);
-        console.log(result);
 
         expect(result.data.property1).to.be('property1');
         expect(result.data.property2).to.be('property2');
         expect(result.data.property3).to.be('property3');
 
-        publisherclient.get('/_TAGS/1_eventemitter_embedded_sanity/' + test_id + '/test/tag/*', null, function (e, results) {
+        setTimeout(function(){
 
-          expect(e).to.be(null);
+          publisherclient.get('/_TAGS/1_eventemitter_embedded_sanity/' + test_id + '/test/tag/*', null, function (e, results) {
 
-          expect(results.length > 0).to.be(true);
+            if (e) return callback(e);
 
-          var found = false;
+            expect(results.length > 0).to.be(true);
 
-          results.map(function (tagged) {
+            var found = false;
 
-            if (found) return;
+            results.every(function (tagged) {
 
-            if (tagged._meta.tag == randomTag) {
-              expect(tagged.data.property1).to.be('property1');
-              expect(tagged.data.property2).to.be('property2');
-              expect(tagged.data.property3).to.be('property3');
-              found = true;
-            }
+              if (tagged._meta.tag == randomTag) {
+
+                expect(tagged.data.property1).to.be('property1');
+                expect(tagged.data.property2).to.be('property2');
+                expect(tagged.data.property3).to.be('property3');
+
+                found = true;
+              }
+
+              return !found;
+            });
+
+            if (!found)
+              callback('couldn\'t find the tag snapshot');
+            else
+              callback();
 
           });
 
-          if (!found)
-            callback('couldn\'t find the tag snapshot');
-          else
-            callback();
-
-        });
-
+        }, 1000);
 
       });
-
     });
-
   });
 
 
