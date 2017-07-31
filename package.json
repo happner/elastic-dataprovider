@@ -16,7 +16,7 @@
     "node-uuid": "^1.4.7",
     "rimraf": "^2.4.4"
   },
-  "private": true,
+  "private": false,
   "dependencies": {
     "async": "1.5.2",
     "bluebird": "2.10.2",
