@@ -421,6 +421,35 @@ ElasticProvider.prototype.sanitize = function (query) {
     .replace(/NOT/g, '\\N\\O\\T'); // replace NOT
 };
 
+ElasticProvider.prototype.escapeRegex = function(str){
+
+  if (typeof str !== 'string') throw new TypeError('Expected a string');
+
+  return str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
+};
+
+ElasticProvider.prototype.preparePath = function(path) {
+
+  //strips out duplicate sequential wildcards, ie simon***bishop -> simon*bishop
+
+  if (!path) return '*';
+
+  var prepared = '';
+
+  var lastChar = null;
+
+  for (var i = 0; i < path.length; i++) {
+
+    if (path[i] == '*' && lastChar == '*') continue;
+
+    prepared += path[i];
+
+    lastChar = path[i];
+  }
+
+  return prepared;
+};
+
 ElasticProvider.prototype.__filter = function (criteria, items) {
   try {
     return sift(criteria, items);
@@ -433,7 +462,9 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
   var _this = this;
 
-  _this.__getRoute(path, function (e, route) {
+  var searchPath = _this.preparePath(path);
+
+  _this.__getRoute(searchPath, function (e, route) {
 
     if (e) return callback(e);
 
@@ -455,26 +486,21 @@ ElasticProvider.prototype.find = function (path, parameters, callback) {
 
     if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
 
-    var returnType = path.indexOf('*'); //0,1 == array -1 == single
+    var returnType = searchPath.indexOf('*'); //0,1 == array -1 == single
 
-    if (returnType == 0) {
+    if (returnType > -1){
 
-      elasticMessage.body["query"]["bool"]["must"].push({
-        "regexp": {
-          "path": '^' + path.replace(/[*]/g, '.*')
-        }
-      });
-    } else if (returnType > 0) {
+      //NB: elasticsearch regexes are always anchored so elastic adds a ^ at the beginning and a $ at the end.
 
       elasticMessage.body["query"]["bool"]["must"].push({
         "regexp": {
-          "path": path.replace(/[*]/g, '.*')
+          "path": _this.escapeRegex(searchPath).replace(/\\\*/g, ".*")
         }
       });
     } else {
       elasticMessage.body["query"]["bool"]["must"].push({
         "terms": {
-          "_id": [path]
+          "_id": [searchPath]
         }
       });
     }
@@ -590,6 +616,7 @@ ElasticProvider.prototype.__parseFields = function (fields) {
         var propertyKey = _thisNode.key;
 
         if (propertyKey.indexOf('data.') == 0) _thisNode.parent.node['_source.' + propertyKey] = value;
+        else if (propertyKey.indexOf('_data.') == 0) _thisNode.parent.node['_source.' + propertyKey] = value;
         //prepend with data.
         else _thisNode.parent.node['_source.data.' + propertyKey] = value;
 

@@ -128,6 +128,8 @@ describe('func', function () {
 
         serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
 
+          if (e) return callback(e);
+
           expect(response.length).to.equal(2);
 
           expect(response[0].data.test).to.equal('data');

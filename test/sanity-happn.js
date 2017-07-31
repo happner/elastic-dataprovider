@@ -117,6 +117,7 @@ describe('sanity-happn', function () {
   it('the publisher should set new data', function (callback) {
 
     try {
+
       var test_path_end = require('shortid').generate();
 
       publisherclient.set('1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/' + test_path_end, {
@@ -368,89 +369,6 @@ describe('sanity-happn', function () {
     })
   });
 
-
-  it('should search for a complex object', function (callback) {
-
-    var test_path_end = require('shortid').generate();
-
-    var complex_obj = {
-      regions: ['North', 'South'],
-      towns: ['North.Cape Town'],
-      categories: ['Action', 'History'],
-      subcategories: ['Action.angling', 'History.art'],
-      keywords: ['bass', 'Penny Siopis'],
-      field1: 'field1'
-    };
-
-    var criteria1 = {
-      $or: [{
-        "data.regions": {
-          $in: ['North', 'South', 'East', 'West']
-        }
-      }, {
-        "data.towns": {
-          $in: ['North.Cape Town', 'South.East London']
-        }
-      }, {
-        "data.categories": {
-          $in: ["Action", "History"]
-        }
-      }],
-      "data.keywords": {
-        $in: ["bass", "Penny Siopis"]
-      }
-    };
-
-    var options1 = {
-      sort: {
-        "data.field1": 1
-      },
-      limit: 1
-    };
-
-    var criteria2 = null;
-
-    var options2 = {
-      fields: {towns:1, keywords:1},
-      sort: {
-        "data.field1": 1
-      },
-      limit: 2
-    };
-
-    publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end, complex_obj, null, function (e, put_result) {
-
-      if (e) return callback(e);
-
-      publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end + '/1', complex_obj, null, function (e, put_result) {
-
-        if (e) return callback(e);
-
-        ////////////console.log('searching');
-        publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*', {
-          criteria: criteria1,
-          options: options1
-        }, function (e, search_result) {
-          
-          if (e) return callback(e);
-
-          expect(search_result.length == 1).to.be(true);
-
-          publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*', {
-            criteria: criteria2,
-            options: options2
-          }, function (e, search_result) {
-
-            if (e) return callback(e);
-
-            expect(search_result.length == 2).to.be(true);
-            callback(e);
-          });
-        });
-      });
-    });
-  });
-
   it('tests sift', function (callback) {
 
     var array = [
@@ -467,74 +385,7 @@ describe('sanity-happn', function () {
 
   });
 
-  it('should search for a complex object by dates', function (callback) {
 
-    var test_path_end = require('shortid').generate();
-
-    var complex_obj = {
-      "dregions": ['North', 'South'],
-      "towns": ['North.Cape Town'],
-      "categories": ['Action', 'History'],
-      "subcategories": ['Action.angling', 'History.art'],
-      "keywords": ['bass', 'Penny Siopis'],
-      "field1": 'field1'
-    };
-
-    var from = Date.now();
-    var to;
-
-    publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end, complex_obj, null, function (e, put_result) {
-
-      expect(e == null).to.be(true);
-
-      setTimeout(function(){
-
-        to = Date.now();
-
-        var criteria = {
-          "_meta.created": {
-            $gte: from,
-            $lte: to
-          }
-        };
-
-        var options = {
-          fields:null,
-          sort: {
-            "data.field1": 1
-          },
-          limit: 2
-        };
-
-        ////////////console.log('searching');
-        publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*', {
-          criteria: criteria,
-          options: options
-        }, function (e, search_result) {
-
-          expect(e == null).to.be(true);
-
-          if (search_result.length == 0){
-
-            publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end, function (e, unmatched) {
-
-              callback(new Error('no items found in the date range'));
-
-            });
-
-          } else {
-
-            publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end, function (e, unmatched) {
-
-              callback();
-
-            });
-          }
-        });
-      }, 300);
-
-    });
-  });
 
 
   it('should delete some test data', function (callback) {
@@ -815,7 +666,7 @@ describe('sanity-happn', function () {
   });
 
 
-  //  We set the listener client to listen for a PUT event according to a path, then we set a value with the publisher client.
+  // We set the listener client to listen for a PUT event according to a path, then we set a value with the publisher client.
 
   it('the listener should pick up a single published event', function (callback) {
 
@@ -1158,6 +1009,145 @@ describe('sanity-happn', function () {
     });
   });
 
-  //require('benchmarket').stop();
+  it('should search for a complex object', function (callback) {
 
+    var test_path_end = require('shortid').generate();
+
+    var complex_obj = {
+      regions: ['North', 'South'],
+      towns: ['North.Cape Town'],
+      categories: ['Action', 'History'],
+      subcategories: ['Action.angling', 'History.art'],
+      keywords: ['bass', 'Penny Siopis'],
+      field1: 'field1'
+    };
+
+    var criteria1 = {
+      $or: [{
+        "data.regions": {
+          $in: ['North', 'South', 'East', 'West']
+        }
+      }, {
+        "data.towns": {
+          $in: ['North.Cape Town', 'South.East London']
+        }
+      }, {
+        "data.categories": {
+          $in: ["Action", "History"]
+        }
+      }],
+      "data.keywords": {
+        $in: ["bass", "Penny Siopis"]
+      }
+    };
+
+    var options1 = {
+      sort: {
+        "data.field1": 1
+      },
+      limit: 1
+    };
+
+    var criteria2 = null;
+
+    var options2 = {
+      fields: {towns:1, keywords:1},
+      sort: {
+        "data.field1": 1
+      },
+      limit: 2
+    };
+
+    publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end, complex_obj, null, function (e, put_result) {
+
+      if (e) return callback(e);
+
+      publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end + '/1', complex_obj, null, function (e, put_result) {
+
+        if (e) return callback(e);
+
+        ////////////console.log('searching');
+        publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*', {
+          criteria: criteria1,
+          options: options1
+        }, function (e, search_result) {
+
+          if (e) return callback(e);
+
+          expect(search_result.length == 1).to.be(true);
+
+          publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*', {
+            criteria: criteria2,
+            options: options2
+          }, function (e, search_result) {
+
+            if (e) return callback(e);
+
+            expect(search_result.length == 2).to.be(true);
+            callback(e);
+          });
+        });
+      });
+    });
+  });
+
+  it('should search for a complex object by dates', function (callback) {
+
+    var test_path_end = require('shortid').generate();
+
+    var complex_obj = {
+      "dregions": ['North', 'South'],
+      "towns": ['North.Cape Town'],
+      "categories": ['Action', 'History'],
+      "subcategories": ['Action.angling', 'History.art'],
+      "keywords": ['bass', 'Penny Siopis'],
+      "field1": 'field1'
+    };
+
+    var from = Date.now();
+
+    var to;
+
+    publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/by/date/' + test_path_end, complex_obj, null, function (e, put_result) {
+
+      expect(e == null).to.be(true);
+
+      setTimeout(function(){
+
+        to = Date.now();
+
+        var criteria = {
+          "_meta.created": {
+            $gte: from,
+            $lte: to
+          }
+        };
+
+        var options = {
+          fields:null,
+          sort: {
+            "data.field1": 1
+          },
+          limit: 2
+        };
+
+        publisherclient.get('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/by/date/*', {
+          criteria: criteria,
+          options: options
+        }, function (e, search_result) {
+
+          expect(e == null).to.be(true);
+
+          if (search_result.length == 0){
+
+            return callback(new Error('no items found in the date range'));
+
+          } else {
+
+            return callback();
+          }
+        });
+      }, 1000);
+    });
+  });
 });
