@@ -1,6 +1,6 @@
 {
   "name": "happner-elastic-dataprovider",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scripts": {
     "test": "mocha test"
   },
@@ -9,8 +9,8 @@
     "chai": "^3.5.0",
     "expect.js": "^0.3.1",
     "gulp": "*",
-    "happn-3": "^1.13.4",
-    "happner-2": "2.7.5",
+    "happn-3": "*",
+    "happner-2": "*",
     "json-from-schema": "1.10.0",
     "mocha": "*",
     "node-uuid": "^1.4.7",
