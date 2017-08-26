@@ -12,6 +12,12 @@ describe('func-indexes', function () {
 
   var provider_path = path.resolve('../index.js');
 
+  var async = require('async');
+
+  var random = require('./fixtures/random');
+
+  var uuid = require('uuid');
+
   var config = {
     name: 'elastic',
     provider: provider_path,
@@ -235,7 +241,81 @@ describe('func-indexes', function () {
         });
       });
     });
-
   });
 
+  var ROUTE_COUNT = 20;
+  var ROW_COUNT = 100;
+  var DELAY = 500;
+
+  it('tests parallel dynamic routes, creating ' + ROUTE_COUNT + ' routes and pushing ' + ROW_COUNT + ' data items into the routes', function (done) {
+
+    this.timeout(1000 * ROW_COUNT + DELAY);
+
+    var routes = [];
+    var rows = [];
+    var errors = [];
+    var successes = [];
+
+    for (var i = 0; i < ROUTE_COUNT; i++){
+      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');;
+      var route = '/dynamic/' + index + '/test_type';
+      routes.push(route);
+    }
+
+    for (var i = 0; i < ROW_COUNT; i++) {
+
+      var routeIndex = random.integer(0, ROUTE_COUNT);
+
+      if (routes[routeIndex] != null)
+        rows.push(routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/' + routeIndex.toString());
+    }
+
+    async.each(rows, function (row, callback) {
+
+      serviceInstance.upsert(row, {data: {"test": row}}, {}, false, function (e, response, created) {
+
+        if (e) {
+          errors.push({row:row, error:e});
+          return callback(e);
+        }
+
+        successes.push({row:row, created:created});
+
+        callback();
+      });
+
+    }, function(e){
+
+      if (e) return done(e);
+
+      var errorHappened  = false;
+
+      setTimeout(function(){
+
+        async.each(successes, function(successfulRow, successfulRowCallback){
+
+          var callbackError = function(error){
+
+            if (!errorHappened) {
+              errorHappened = true;
+              successfulRowCallback(error)
+            }
+          };
+
+          serviceInstance.find(successfulRow.row, {}, function(e, data){
+
+            if (e) return callbackError(e);
+
+            if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
+
+            if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.row));
+
+            successfulRowCallback();
+          });
+
+        }, done);
+
+      }, DELAY);
+    });
+  });
 });

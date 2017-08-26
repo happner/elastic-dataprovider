@@ -14,51 +14,7 @@ describe('sanity-happn', function () {
 
   var db_path = path.resolve(__dirname.replace('test',''))  + path.sep + 'index.js';
 
-  var config = {
-    services:{
-      data:{
-        config:{
-          datastores:[
-            {
-              name:'elastic',
-              provider:db_path,
-              isDefault:true,
-              settings:{
-                host: "http://localhost:9200",
-                indexes: [
-                  {
-                    index: "happner",
-                    body: {
-                      "mappings": {}
-                    }
-                  },
-                  {
-                    index: "sortedandlimitedindex1",
-                    body: {
-                      "mappings": {
-                        "happner": {
-                          "properties": {
-                            "data.field1": {"type": "keyword"},
-                            "data.item_sort_id": {"type": "integer"}
-                          }
-                        }
-                      }
-                    }
-                  }],
-                dataroutes: [{
-                  pattern: "/1_eventemitter_embedded_sanity/" + test_id + "/testsubscribe/data/complex*",
-                  index: "sortedandlimitedindex1"
-                },{
-                  pattern: "*",
-                  index: "happner"
-                }]
-              }
-            }
-          ]
-        }
-      }
-    }
-  };
+  var config = require('./fixtures/happn-config').get(db_path, test_id);
 
   before('should initialize the service', function (callback) {
 
