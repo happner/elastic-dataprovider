@@ -1,4 +1,4 @@
-describe('func-indexes', function () {
+describe('func-indexes, with route and data caching', function () {
 
   this.timeout(5000);
 
@@ -23,6 +23,8 @@ describe('func-indexes', function () {
     provider: provider_path,
     defaultIndex: "indextest",
     host: "http://localhost:9200",
+    cache:true,
+    routeCache:true,
     indexes: [
       {
         index: "indextest",
