@@ -15,6 +15,13 @@ function ElasticProvider(config) {
     if (!config.cache.cacheId) config.cache.cacheId = config.name;
   }
 
+  if (config.routeCache) {
+
+    if (config.routeCache === true) config.routeCache = {};
+
+    if (!config.routeCache.cacheId) config.routeCache.cacheId = config.name + '-routes';
+  }
+
   if (!config.defaultIndex) config.defaultIndex = 'happner';
 
   if (!config.defaultType) config.defaultType = 'happner';
@@ -522,9 +529,11 @@ function ElasticProvider(config) {
 {
   ElasticProvider.prototype.setUpRouteCache = function () {
 
-    var cache = new Cache(_this.config.routeCache);
+    var cache = new Cache(this.config.routeCache);
 
     Object.defineProperty(this, 'routeCache', {value: cache});
+
+    console.warn('route caching is on, be sure you have redis up.');
   };
 
   ElasticProvider.prototype.setUpCache = function () {
@@ -640,6 +649,8 @@ function ElasticProvider(config) {
         });
       });
     }.bind(this);
+
+    console.warn('data caching is on, be sure you have redis up.');
   };
 }
 
@@ -756,7 +767,7 @@ function ElasticProvider(config) {
 
     var cacheKey = parts.index + '_' + parts.type;
 
-    if (_this.routeCache) return _this.routeCache.set(cacheKey, item, callback);
+    if (_this.routeCache) return _this.routeCache.set(cacheKey, parts, callback);
 
     _this.__dynamicRoutes[cacheKey] = parts;
 
