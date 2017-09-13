@@ -43,6 +43,11 @@ describe('func-indexes', function () {
         pattern: "/dynamic/{{index}}/{{type}}/{{dynamic0}}/{{dynamic1:date}}/{{dynamic2:integer}}"
       },
       {
+        dynamic: true,//dynamic routes generate a new index/type according to the items in the path
+        pattern: "/dynamicType/{{index}}/*",
+        type: 'dynamic'
+      },
+      {
         pattern: "*",
         index: "indextest"
       }
@@ -105,7 +110,11 @@ describe('func-indexes', function () {
     var elasticMessage = {
       "index": index,
       "type": type,
+
       "body": {
+        "sort": [
+          {"timestamp": {"order": "asc"}},
+        ],
         "from": 0,
         "size": 10000
       }
@@ -154,7 +163,7 @@ describe('func-indexes', function () {
                 if (e) return done(e);
 
                 defaultItems.forEach(function (item) {
-                  if (item._id == '/default/' + testId)  foundItems.push(item);
+                  if (item._id == '/default/' + testId) foundItems.push(item);
                 });
 
                 expect(foundItems.length).to.be(1);
@@ -162,7 +171,7 @@ describe('func-indexes', function () {
                 foundItems = [];
 
                 customItems.forEach(function (item) {
-                  if (item._id == '/custom/' + testId)  foundItems.push(item);
+                  if (item._id == '/custom/' + testId) foundItems.push(item);
                 });
 
                 expect(foundItems.length).to.be(1);
@@ -256,8 +265,9 @@ describe('func-indexes', function () {
     var errors = [];
     var successes = [];
 
-    for (var i = 0; i < ROUTE_COUNT; i++){
-      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');;
+    for (var i = 0; i < ROUTE_COUNT; i++) {
+      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+      ;
       var route = '/dynamic/' + index + '/test_type';
       routes.push(route);
     }
@@ -275,26 +285,26 @@ describe('func-indexes', function () {
       serviceInstance.upsert(row, {data: {"test": row}}, {}, false, function (e, response, created) {
 
         if (e) {
-          errors.push({row:row, error:e});
+          errors.push({row: row, error: e});
           return callback(e);
         }
 
-        successes.push({row:row, created:created});
+        successes.push({row: row, created: created});
 
         callback();
       });
 
-    }, function(e){
+    }, function (e) {
 
       if (e) return done(e);
 
-      var errorHappened  = false;
+      var errorHappened = false;
 
-      setTimeout(function(){
+      setTimeout(function () {
 
-        async.each(successes, function(successfulRow, successfulRowCallback){
+        async.each(successes, function (successfulRow, successfulRowCallback) {
 
-          var callbackError = function(error){
+          var callbackError = function (error) {
 
             if (!errorHappened) {
               errorHappened = true;
@@ -302,7 +312,7 @@ describe('func-indexes', function () {
             }
           };
 
-          serviceInstance.find(successfulRow.row, {}, function(e, data){
+          serviceInstance.find(successfulRow.row, {}, function (e, data) {
 
             if (e) return callbackError(e);
 
@@ -316,6 +326,56 @@ describe('func-indexes', function () {
         }, done);
 
       }, DELAY);
+    });
+  });
+
+  it('tests dynamic routes with type specified in the route', function (done) {
+
+    var now1 = Date.now().toString();
+
+    var path1 = '/dynamicType/' + testId + '/any_value/' + now1;
+
+    serviceInstance.upsert(path1, {data: {"test": "dynamic0"}}, {}, false, function (e, response, created) {
+
+      if (e) return done(e);
+      setTimeout(function () {
+        var now2 = Date.now().toString();
+        var path2 = '/dynamicType/' + testId + '/any_value2/' + now2;
+
+        serviceInstance.upsert(path2, {data: {"test": "dynamic1"}}, {}, false, function (e, response, created) {
+
+          if (e) return done(e);
+
+          getElasticClient(function (e, client) {
+
+            if (e) return done(e);
+
+            setTimeout(function () {
+
+              listAll(client, testId, "dynamic", function (e, dynamictems0) {
+
+                if (e) return done(e);
+
+                expect(dynamictems0.length).to.be(2);
+
+                expect(dynamictems0[0]._index).to.be(testId);
+
+                expect(dynamictems0[0]._type).to.be('dynamic');
+
+                expect(dynamictems0[0]._source.path).to.be(path1);
+
+                expect(dynamictems0[1]._index).to.be(testId);
+
+                expect(dynamictems0[1]._type).to.be('dynamic');
+
+                expect(dynamictems0[1]._source.path).to.be(path2);
+
+                done();
+              });
+            }, 1000);
+          });
+        });
+      }, 1000);
     });
   });
 });
