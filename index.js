@@ -4,7 +4,7 @@ var mongoToElastic = require('./lib/mongo-to-elastic')
   , traverse = require('traverse')
   , Comedian = require('co-median')
   , Cache = require('redis-lru-cache')
-  ;
+;
 
 function ElasticProvider(config) {
 
@@ -48,11 +48,11 @@ function ElasticProvider(config) {
       //yada yada yada: https://github.com/elastic/elasticsearch-js/issues/196
       var AgentKeepAlive = require('agentkeepalive');
 
-      var client = new elasticsearch.Client({
-        createNodeAgent: function(connection, config) {
-          return new AgentKeepAlive(connection.makeAgentConfig(config));
-        }
-      });
+      _this.config.createNodeAgent = function (connection, config) {
+        return new AgentKeepAlive(connection.makeAgentConfig(config));
+      };
+
+      var client = new elasticsearch.Client(_this.config);
 
       client.ping({
         requestTimeout: 30000
@@ -286,7 +286,7 @@ function ElasticProvider(config) {
 
             var found = resp.hits.hits;
 
-            if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+            if (parameters.criteria) found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
             callback(null, _this.__partialTransformAll(found));
 
@@ -683,7 +683,8 @@ function ElasticProvider(config) {
 
       var pattern = dataStoreRoute.pattern;
 
-      if (dataStoreRoute.dynamic) pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
+      if (dataStoreRoute.dynamic)
+        pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
 
       if (_this.__matchRoute(path, pattern)) route = dataStoreRoute;
 
@@ -785,11 +786,11 @@ function ElasticProvider(config) {
     callback(null, this.__dynamicRoutes[cacheKey]);
   };
 
-  ElasticProvider.prototype.__routeCreatedAlready = function(parts, callback){
+  ElasticProvider.prototype.__routeCreatedAlready = function (parts, callback) {
 
     var _this = this;
 
-    _this.__getRouteFromCache(parts, function(e, route){
+    _this.__getRouteFromCache(parts, function (e, route) {
 
       if (e) return callback(e);
 
@@ -810,12 +811,13 @@ function ElasticProvider(config) {
 
     var dynamicParts = {fields: [], values: {}};
 
+    dynamicParts.type = dataStoreRoute.type;
+
     indexSegments.forEach(function (segment, segmentIndex) {
 
       if (segment.indexOf("{{") == 0) {
 
         var fieldSegment = segment.replace("{{", "").replace("}}", "");
-
         if (fieldSegment == 'index') {
 
           dynamicParts.index = pathSegments[segmentIndex];
@@ -842,7 +844,7 @@ function ElasticProvider(config) {
 
     if (data) data = _this.__createDynamicObject(dynamicParts, data);
 
-    _this.__routeCreatedAlready(dynamicParts, function(e, createdAlready){
+    _this.__routeCreatedAlready(dynamicParts, function (e, createdAlready) {
 
       if (e) return callback(e);
 
@@ -859,7 +861,7 @@ function ElasticProvider(config) {
 
         if (e) return callback(e);
 
-        _this.__cacheRoute(dynamicParts, function(e){
+        _this.__cacheRoute(dynamicParts, function (e) {
 
           if (e) return callback(e);
 
