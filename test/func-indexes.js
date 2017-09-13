@@ -110,7 +110,11 @@ describe('func-indexes', function () {
     var elasticMessage = {
       "index": index,
       "type": type,
+
       "body": {
+        "sort": [
+          {"timestamp": {"order": "asc"}},
+        ],
         "from": 0,
         "size": 10000
       }
@@ -329,49 +333,49 @@ describe('func-indexes', function () {
 
     var now1 = Date.now().toString();
 
-    var now2 = Date.now().toString();
-
     var path1 = '/dynamicType/' + testId + '/any_value/' + now1;
-
-    var path2 = '/dynamicType/' + testId + '/any_value/' + now2;
 
     serviceInstance.upsert(path1, {data: {"test": "dynamic0"}}, {}, false, function (e, response, created) {
 
       if (e) return done(e);
+      setTimeout(function () {
+        var now2 = Date.now().toString();
+        var path2 = '/dynamicType/' + testId + '/any_value2/' + now2;
 
-      serviceInstance.upsert(path2, {data: {"test": "dynamic1"}}, {}, false, function (e, response, created) {
-
-        if (e) return done(e);
-
-        getElasticClient(function (e, client) {
+        serviceInstance.upsert(path2, {data: {"test": "dynamic1"}}, {}, false, function (e, response, created) {
 
           if (e) return done(e);
 
-          setTimeout(function () {
+          getElasticClient(function (e, client) {
 
-            listAll(client, testId, "dynamic", function (e, dynamictems0) {
+            if (e) return done(e);
 
-              if (e) return done(e);
+            setTimeout(function () {
 
-              expect(dynamictems0.length).to.be(2);
+              listAll(client, testId, "dynamic", function (e, dynamictems0) {
 
-              expect(dynamictems0[0]._index).to.be(testId);
+                if (e) return done(e);
 
-              expect(dynamictems0[0]._type).to.be('dynamic');
+                expect(dynamictems0.length).to.be(2);
 
-              expect(dynamictems0[0]._source.path).to.be(path1);
+                expect(dynamictems0[0]._index).to.be(testId);
 
-              expect(dynamictems0[1]._index).to.be(testId);
+                expect(dynamictems0[0]._type).to.be('dynamic');
 
-              expect(dynamictems0[1]._type).to.be('dynamic');
+                expect(dynamictems0[0]._source.path).to.be(path1);
 
-              expect(dynamictems0[1]._source.path).to.be(path2);
+                expect(dynamictems0[1]._index).to.be(testId);
 
-              done();
-            });
-          }, 1000);
+                expect(dynamictems0[1]._type).to.be('dynamic');
+
+                expect(dynamictems0[1]._source.path).to.be(path2);
+
+                done();
+              });
+            }, 1000);
+          });
         });
-      });
+      }, 1000);
     });
   });
 });
