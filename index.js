@@ -286,7 +286,7 @@ function ElasticProvider(config) {
 
             var found = resp.hits.hits;
 
-            if (parameters.criteria) found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+            if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
             callback(null, _this.__partialTransformAll(found));
 
@@ -683,8 +683,7 @@ function ElasticProvider(config) {
 
       var pattern = dataStoreRoute.pattern;
 
-      if (dataStoreRoute.dynamic)
-        pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
+      if (dataStoreRoute.dynamic) pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
 
       if (_this.__matchRoute(path, pattern)) route = dataStoreRoute;
 
