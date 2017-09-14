@@ -42,12 +42,7 @@ describe('perf', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{{index}}/{{type}}/{{dynamic0}}/{{dynamic1:date}}/{{dynamic2:integer}}"
-      },
-      {
-        dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamicType/{{index}}/*",
-        type: 'dynamic'
+        pattern: "/dynamic/{index}/{type}/*"
       },
       {
         pattern: "*",
@@ -403,6 +398,99 @@ describe('perf', function () {
     var started = Date.now();
 
     async.each(rows, function (row, callback) {
+
+      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:0, refresh:false}, false, function (e, response, created) {
+
+        if (e) {
+
+          errors.push({row: row, error: e});
+          return callback(e);
+        }
+
+        successes.push({row: row, created: created});
+
+        callback();
+      });
+
+    }, function (e) {
+
+      if (e) return done(e);
+
+      var errorHappened = false;
+
+      var duration = Date.now() - started;
+
+      console.log('duration of push: ', duration);
+
+      var rate = 1000 / (duration / ROW_COUNT_INSERT);
+
+      console.log('inserted at a rate of ' + rate + ' per sec, DELAY_INSERT of ' + DELAY_INSERT + 'ms before confirming via find...');
+
+      setTimeout(function () {
+
+        async.eachSeries(successes, function (successfulRow, successfulRowCallback) {
+
+          var callbackError = function (error) {
+
+            if (!errorHappened) {
+              errorHappened = true;
+              successfulRowCallback(error)
+            }
+          };
+
+          serviceInstance.find(successfulRow.row, {}, function (e, data) {
+
+            if (e) return callbackError(e);
+
+            if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
+
+            if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.row));
+
+            successfulRowCallback();
+          });
+
+        }, function(){
+
+          if (e) return done(e);
+
+          console.log('data confirmed in database.');
+
+          done();
+        });
+
+      }, DELAY_INSERT);
+    });
+  });
+
+  it('tests parallel non-dynamic routes, creating ' + ROUTE_COUNT_INSERT + ' routes and pushing ' + ROW_COUNT_INSERT + ' data items into the routes via the insert operation, refresh = false', function (done) {
+
+    this.timeout(1000 * ROW_COUNT_INSERT + DELAY_INSERT);
+
+    var routes = [];
+    var rows = [];
+    var errors = [];
+    var successes = [];
+
+    for (var i = 0; i < ROUTE_COUNT_INSERT; i++) {
+
+      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+
+      var route = '/non_dynamic/' + index + '/test_type';
+
+      routes.push(route);
+    }
+
+    for (var i = 0; i < ROW_COUNT_INSERT; i++) {
+
+      var routeIndex = random.integer(0, ROUTE_COUNT_INSERT);
+
+      if (routes[routeIndex] != null)
+        rows.push(routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/norefresh/' + '/' + i.toString());
+    }
+
+    var started = Date.now();
+
+    async.eachSeries(rows, function (row, callback) {
 
       serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:0, refresh:false}, false, function (e, response, created) {
 

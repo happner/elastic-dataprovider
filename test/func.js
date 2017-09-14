@@ -116,7 +116,7 @@ describe('func', function () {
     });
   });
 
-  it('gets data with wildcard', function (callback) {
+  it.only('gets data with wildcard', function (callback) {
 
     serviceInstance.upsert('/get/multiple/1/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 

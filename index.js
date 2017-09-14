@@ -26,12 +26,14 @@ function ElasticProvider(config) {
   Object.defineProperty(this, '__dynamicRoutes', {value: {}});
 
   Object.defineProperty(this, '__comedian', {value: new Comedian(config.wildcardCache)});
+
 }
 
 ElasticProvider.prototype.UPSERT_TYPE = {
   insert:0,
   upsert:1,
-  bulk:2
+  bulk:2,
+  index:3
 };
 
 /* initialize and stop */
@@ -98,7 +100,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     if (options.retries == null) options.retries = 20;
 
-    this.__getRoute(path, setData.data, "upsert", function (e, route, routeData) {
+    this.__getRoute(path, function (e, route, dynamic) {
 
       //[end:{"key":"upsert", "self":"_this", "error":"e"}:end]
 
@@ -106,20 +108,22 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
       try{
 
-        setData.data = routeData;
-
         var index = route.index;
 
-        if (options.upsertType == _this.UPSERT_TYPE.insert)
-
+        if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically
           return _this.__insert(path, setData, options, index, route, timestamp, modifiedOn, callback);
 
+        _this.__checkFor (dynamic, route)
 
-        if (options.upsertType == _this.UPSERT_TYPE.bulk)
+          .then(function(){
 
-          return _this.__bulk(path, setData, options, index, route, timestamp, modifiedOn, callback);
+            if (options.upsertType == _this.UPSERT_TYPE.bulk)
+              return _this.__bulk(path, setData, options, index, route, timestamp, modifiedOn, callback);
 
-        _this.__update(path, setData, options, index, route, timestamp, modifiedOn, callback);
+            _this.__update(path, setData, options, index, route, timestamp, modifiedOn, callback);
+          })
+
+          .catch(callback);
 
       }catch(e){
 
@@ -128,35 +132,69 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     });
   };
 
-  ElasticProvider.prototype.__bulk = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
-    callback(new Error('bulk not implemented yet'));
+  var dynamicRoutes = {};
+
+  ElasticProvider.prototype.__checkFor = function(dynamic, route){
+
+    var _this = this;
+
+    return new Promise(function(resolve, reject){
+
+      try{
+
+        if (!dynamic || dynamicRoutes[route.index]) return resolve();
+
+        _this.__createDynamicIndex(route, function(e){
+
+          if (e) return reject(e);
+
+          dynamicRoutes[route.index] = true;
+
+          resolve();
+        });
+
+      }catch(e){
+
+        reject(e);
+      }
+    });
   };
 
-  ElasticProvider.prototype.__index = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+  ElasticProvider.prototype.__createDynamicIndex = function (dynamicParts, callback) {
 
+    var _this = this;
+
+    var indexJSON = _this.__buildIndexObj({
+        index: dynamicParts.index,
+        type: dynamicParts.type
+      }
+    );
+
+    _this.__createIndex(dynamicParts.index, indexJSON, callback);
   };
-
 
   ElasticProvider.prototype.__insert = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
 
     var _this = this;
 
-    //[start:{"key":"__insert", "self":"_this"}:start]
-
-    var createObj = {
-      modified: timestamp,
-      timestamp: timestamp,
-      path: path,
-      data: setData.data,
-      created: timestamp
-    };
+    //[start:{"key":"__update", "self":"_this"}:start]
 
     var elasticMessage = {
-      "index": index,
-      "type": route.type,
+
+      index: route.index,
+      type: route.type,
       id: path,
-      body: createObj,
-      refresh: options.refresh
+
+      body: {
+        created: modifiedOn,
+        modified: modifiedOn,
+        timestamp: timestamp,
+        path: path,
+        data: setData.data
+      },
+
+      refresh: options.refresh,
+      opType: "create"
     };
 
     if (options.modifiedBy) {
@@ -165,18 +203,30 @@ ElasticProvider.prototype.UPSERT_TYPE = {
       elasticMessage.body.createdBy = options.modifiedBy;
     }
 
-    if (setData._tag) elasticMessage.body._tag = setData._tag;
+    if (setData._tag) {
 
-    _this.db.create(elasticMessage, function (e, response) {
+      elasticMessage.body._tag = setData._tag;
+    }
 
-      //[end:{"key":"__insert", "self":"_this", "error":"e"}:end]
+    _this.db.index(elasticMessage, function (e, response) {
+
+      //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
 
       if (e) return callback(e);
 
-      //e, response, created, upsert, meta
+      var inserted = elasticMessage.body;
 
-      callback(null, createObj, _this.__partialInsertTransform(createObj, response), true, _this.__getMeta(createObj));
+      inserted._index = response._index;
+      inserted._type = response._type;
+      inserted._id = response._id;
+      inserted._version = response._version;
+
+      callback(null, inserted, inserted, true, _this.__getMeta(inserted));
     });
+  };
+
+  ElasticProvider.prototype.__bulk = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+    callback(new Error('bulk not implemented yet'));
   };
 
   ElasticProvider.prototype.__update = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
@@ -186,16 +236,20 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     //[start:{"key":"__update", "self":"_this"}:start]
 
     var elasticMessage = {
+
       "index": index,
       "type": route.type,
       id: path,
+
       body: {
+
         doc: {
           modified: modifiedOn,
           timestamp: timestamp,
           path: path,
           data: setData.data
         },
+
         upsert: {
           created: modifiedOn,
           modified: modifiedOn,
@@ -234,6 +288,8 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
       if (response.result == 'created') created = _this.__partialTransform(response.get, index, route.type);
 
+      //console.log('upserted:::', elasticMessage);
+
       callback(null, data, created, true, _this.__getMeta(response.get._source));
     });
   };
@@ -248,7 +304,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     var deletedCount = 0;
 
-    this.__getRoute(path, null, "remove", function (e, route) {
+    this.__getRoute(path, function (e, route) {
 
       if (e) return callback(e);
 
@@ -318,9 +374,11 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     //[start:{"key":"find", "self":"_this"}:start]
 
-    _this.__getRoute(searchPath, null, 'find', function (e, route) {
+    _this.__getRoute(searchPath, function (e, route) {
 
       if (e) return callback(e);
+
+      //console.log('find route:::', route);
 
       if (route.noIndexYet) {
         //[end:{"key":"find", "self":"_this"}:end]
@@ -363,6 +421,8 @@ ElasticProvider.prototype.UPSERT_TYPE = {
           }
         });
       }
+
+      //console.log('searching:::', JSON.stringify(elasticMessage));
 
       _this.db.search(elasticMessage)
 
@@ -791,7 +851,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     return this.__wildcardMatch(baseTagPath + pattern, path);
   };
 
-  ElasticProvider.prototype.__getRoute = function (path, data, operation, callback) {
+  ElasticProvider.prototype.__getRoute = function (path, callback) {
 
     var _this = this;
 
@@ -799,16 +859,11 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     var route = null;
 
-    if (typeof data == 'function') {
-      callback = data;
-      data = null;
-    }
-
     _this.config.dataroutes.every(function (dataStoreRoute) {
 
       var pattern = dataStoreRoute.pattern;
 
-      if (dataStoreRoute.dynamic) pattern = dataStoreRoute.pattern.split('{{')[0] + '*';
+      if (dataStoreRoute.dynamic) pattern = dataStoreRoute.pattern.split('{')[0] + '*';
 
       if (_this.__matchRoute(path, pattern)) route = dataStoreRoute;
 
@@ -820,200 +875,68 @@ ElasticProvider.prototype.UPSERT_TYPE = {
       return callback(new Error('route for path ' + path + ' does not exist'));
     }
 
-    if (route.dynamic)
-
-      return _this.__prepareDynamicIndex(route, path, data, operation, function (e, dynamicRoute, data) {
-
-        //[end:{"key":"__getRoute", "self":"_this"}:end]
-
-        if (e) return callback(e);
-
-        callback(null, dynamicRoute, data);
-      });
+    if (route.dynamic){
+      //[end:{"key":"__getRoute", "self":"_this"}:end]
+      return callback(null, _this.__getDynamicParts(route, path), true);
+    }
 
     //[end:{"key":"__getRoute", "self":"_this"}:end]
-    return callback(null, {index: route.index, type: _this.config.defaultType}, data);
-  };
-
-  ElasticProvider.prototype.__createDynamicObject = function (dynamicParts, data) {
-
-    try {
-
-      //[start:{"key":"__createDynamicObject", "self":"this"}:start]
-
-      Object.keys(dynamicParts.values).forEach(function (dynamicValueKey) {
-
-        if (dynamicParts.values[dynamicValueKey] == null) return;
-
-        var value = dynamicParts.values[dynamicValueKey];
-
-        dynamicParts.fields.forEach(function (dynamicField) {
-
-          if (dynamicField.name == dynamicValueKey) {
-
-            if (['integer', 'date'].indexOf(dynamicField.type) > -1)
-              value = parseInt(value);
-
-            else if (['long', 'double', 'float', 'half_float', 'scaled_float'].indexOf(dynamicField.type) > -1)
-              value = parseFloat(value);
-
-            else if (dynamicField.type == 'boolean') value = !!(value == true || value == 1);
-
-            else if (dynamicField.type != 'string') throw new Error('unable to create dynamic value for type: ' + dynamicField.type + ', can only do basic types: string, integer, date (utc only), long, double, float, half_float, scaled_float');
-          }
-        });
-
-        data[dynamicValueKey] = value;
-      });
-
-      //[end:{"key":"__createDynamicObject", "self":"this"}:end]
-
-      return data;
-
-    } catch (e) {
-
-      //[end:{"key":"__createDynamicObject", "self":"this", "error":"e"}:end]
-      throw new Error('failed to generate dynamic object', e);
-    }
-  };
-
-  ElasticProvider.prototype.__createDynamicIndex = function (dynamicParts, callback) {
-
-    var _this = this;
-
-    //[start:{"key":"__createDynamicIndex", "self":"_this"}:start]
-
-    if (/[A-Z-+_*$@#$%&!]/.test(dynamicParts.index)) return callback(new Error('bad dynamic index name: ' + dynamicParts.index + ' must be lowercase with no special characterssuch as A-Z-+_*$@#$%&!'));
-
-    var indexJSON = _this.__buildIndexObj({
-        index: dynamicParts.index,
-        type: dynamicParts.type
-      }
-    );
-
-    dynamicParts.fields.forEach(function (dynamicField) {
-
-      indexJSON.body.mappings[dynamicParts.type].properties[dynamicField.name] = {type: dynamicField.type};
-    });
-
-    //[end:{"key":"__createDynamicIndex", "self":"_this"}:end]
-
-    _this.__createIndex(dynamicParts.index, indexJSON, callback);
-  };
-
-  ElasticProvider.prototype.__getRouteFromCache = function (parts, callback) {
-
-    var _this = this;
-
-    //[start:{"key":"__getRouteFromCache", "self":"_this"}:start]
-
-    var cacheKey = parts.index + '_' + parts.type;
-
-    if (_this.routeCache) {
-
-      //[end:{"key":"__getRouteFromCache", "self":"_this"}:end]
-      return _this.routeCache.get(cacheKey, callback);
-    }
-
-    //[end:{"key":"__getRouteFromCache", "self":"_this"}:end]
-    callback(null, this.__dynamicRoutes[cacheKey]);
-  };
-
-  ElasticProvider.prototype.__routeCreatedAlready = function (parts, callback) {
-
-    var _this = this;
-
-    //[start:{"key":"__routeCreatedAlready", "self":"_this"}:start]
-
-    _this.__getRouteFromCache(parts, function (e, route) {
-
-      //[end:{"key":"__routeCreatedAlready", "self":"_this"}:end]
-
-      if (e) return callback(e);
-
-      callback(null, route != null);
-    });
+    return callback(null, {index: route.index, type: _this.config.defaultType});
   };
 }
 
 /* indexes */
 {
-  ElasticProvider.prototype.__prepareDynamicIndex = function (dataStoreRoute, path, data, operation, callback) {
+  ElasticProvider.prototype.__getDynamicParts = function (dataStoreRoute, path) {
 
     var _this = this;
 
     //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
 
-    var indexSegments = dataStoreRoute.pattern.split('/');
+    var dynamicParts = {};
 
     var pathSegments = path.split('/');
 
-    var dynamicParts = {fields: [], values: {}};
+    if (!dataStoreRoute.pathLocations){
 
-    dynamicParts.type = dataStoreRoute.type;
+      var locations = {};
 
-    indexSegments.forEach(function (segment, segmentIndex) {
+      dataStoreRoute.pattern.split('/').every(function(segment, segmentIndex){
 
-      if (segment.indexOf("{{") == 0) {
+        if (segment == '{index}') locations.index = segmentIndex;
 
-        var fieldSegment = segment.replace("{{", "").replace("}}", "");
+        if (segment == '{type}') locations.type = segmentIndex;
 
-        if (fieldSegment == 'index') {
+        return !(locations.index && locations.type);
+      });
 
-          dynamicParts.index = pathSegments[segmentIndex];
-
-        } else if (fieldSegment == 'type') {
-
-          dynamicParts.type = pathSegments[segmentIndex];
-
-        } else {
-
-          var dynamicField = {type: "string", name: fieldSegment};
-
-          if (segment.indexOf(":") > 0) {
-
-            dynamicField.type = fieldSegment.split(":")[1];
-            dynamicField.name = fieldSegment.split(":")[0];
-          }
-
-          dynamicParts.fields.push(dynamicField);
-          dynamicParts.values[dynamicField.name] = pathSegments[segmentIndex];
-        }
-      }
-    });
-
-    if (data && dynamicParts.fields.length > 0) data = _this.__createDynamicObject(dynamicParts, data);
-
-    if (_this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type]) return callback(null, dynamicParts, data);
-
-    if (operation != "upsert") {
-
-      dynamicParts.noIndexYet = true;
-
-      return callback(null, dynamicParts, data);
+      dataStoreRoute.pathLocations = locations;
     }
 
-    _this.__createDynamicIndex(dynamicParts, function (e) {
+    if (dataStoreRoute.pathLocations.index) dynamicParts.index = pathSegments[dataStoreRoute.pathLocations.index];
 
-      if (e) return callback(e);
+    if (dataStoreRoute.pathLocations.type) dynamicParts.type = pathSegments[dataStoreRoute.pathLocations.type];
 
-      _this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type] = dynamicParts;
+    if (!dynamicParts.index) dynamicParts.index = dataStoreRoute.index;
 
-      callback(null, dynamicParts, data);
-    });
+    if (!dynamicParts.type) dynamicParts.type = dataStoreRoute.type;
+
+    //[end:{"key":"__prepareDynamicIndex", "self":"_this"}:end]
+
+    return dynamicParts;
   };
 
   ElasticProvider.prototype.__createIndex = function (index, indexConfig, callback) {
 
     var _this = this;
 
-     //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
+     //[start:{"key":"__createIndex", "self":"_this"}:start]
 
-    _this.db.indices.create(indexConfig, function (e, response) {
+    _this.db.indices.create(indexConfig, function (e) {
 
       if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
 
-        //[end:{"key":"__prepareDynamicIndex", "self":"_this"}:end]
+        //[end:{"key":"__createIndex", "self":"_this"}:end]
         return callback(new Error('failed creating index ' + index + ':' + e.toString(), e));
       }
 
