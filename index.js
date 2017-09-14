@@ -35,6 +35,12 @@ function ElasticProvider(config) {
   Object.defineProperty(this, '__comedian', {value: new Comedian(config.wildcardCache)});
 }
 
+ElasticProvider.prototype.UPSERT_TYPE = {
+  insert:0,
+  upsert:1,
+  bulk:2
+};
+
 /* initialize and stop */
 {
   ElasticProvider.prototype.initialize = function (callback) {
@@ -80,90 +86,167 @@ function ElasticProvider(config) {
   };
 }
 
-/* upsert, update and remove */
+/* upsert, insert, update and remove */
 {
 
   ElasticProvider.prototype.upsert = function (path, setData, options, dataWasMerged, callback) {
 
     var _this = this;
 
+    //[start:{"key":"upsert", "self":"_this"}:start]
+
     var modifiedOn = Date.now();
 
     var timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
 
+    if (!options) options = {};
+
+    if (options.refresh == null) options.refresh = true; //slow but reliable
+
+    if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
+
+    if (options.retries == null) options.retries = 20;
+
     this.__getRoute(path, setData.data, "upsert", function (e, route, routeData) {
+
+      //[end:{"key":"upsert", "self":"_this", "error":"e"}:end]
 
       if (e) return callback(e);
 
-      setData.data = routeData;
+      try{
 
-      var index = route.index;
+        setData.data = routeData;
 
-      var elasticMessage = {
-        "index": index,
-        "type": route.type,
-        id: path,
-        body: {
-          doc: {
-            modified: modifiedOn,
-            timestamp: timestamp,
-            path: path,
-            data: setData.data
-          },
-          upsert: {
-            created: modifiedOn,
-            modified: modifiedOn,
-            timestamp: timestamp,
-            path: path,
-            data: setData.data
-          }
-        },
-        _source: true,
-        refresh: true,
-        retry_on_conflict: 20
-      };
+        var index = route.index;
 
-      if (options.modifiedBy) {
+        if (options.upsertType == _this.UPSERT_TYPE.insert)
 
-        elasticMessage.body.upsert.modifiedBy = options.modifiedBy;
-        elasticMessage.body.doc.modifiedBy = options.modifiedBy;
-        elasticMessage.body.upsert.createdBy = options.modifiedBy;
+          return _this.__insert(path, setData, options, index, route, timestamp, modifiedOn, callback);
+
+
+        if (options.upsertType == _this.UPSERT_TYPE.bulk)
+
+          return _this.__bulk(path, setData, options, index, route, timestamp, modifiedOn, callback);
+
+        _this.__update(path, setData, options, index, route, timestamp, modifiedOn, callback);
+
+      }catch(e){
+
+        callback(e);
       }
-
-      if (setData._tag) {
-
-        elasticMessage.body.doc._tag = setData._tag;
-        elasticMessage.body.upsert._tag = setData._tag;
-      }
-
-      if (!options) options = {};
-
-      options.upsert = true;
-
-      _this.db.update(elasticMessage, function (e, response) {
-
-        if (e) return callback(e);
-
-        var data = response.get._source;
-
-        var created = null;
-
-        if (response.result == 'created') created = _this.__partialTransform(response.get, index, route.type);
-        //e, response, created, upsert, meta
-
-        callback(null, data, created, true, _this.__getMeta(response.get._source));
-      });
     });
   };
 
-  ElasticProvider.prototype.update = function (criteria, data, options, callback) {
+  ElasticProvider.prototype.__bulk = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+    callback(new Error('bulk not implemented yet'));
+  };
 
-    return this.db.update(criteria, data, options, callback);
+  ElasticProvider.prototype.__insert = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+
+    var _this = this;
+
+    //[start:{"key":"__insert", "self":"_this"}:start]
+
+    var createObj = {
+      modified: timestamp,
+      timestamp: timestamp,
+      path: path,
+      data: setData.data,
+      created: timestamp
+    };
+
+    var elasticMessage = {
+      "index": index,
+      "type": route.type,
+      id: path,
+      body: createObj,
+      refresh: options.refresh
+    };
+
+    if (options.modifiedBy) {
+
+      elasticMessage.body.modifiedBy = options.modifiedBy;
+      elasticMessage.body.createdBy = options.modifiedBy;
+    }
+
+    if (setData._tag) elasticMessage.body._tag = setData._tag;
+
+    _this.db.create(elasticMessage, function (e, response) {
+
+      //[end:{"key":"__insert", "self":"_this", "error":"e"}:end]
+
+      if (e) return callback(e);
+
+      //e, response, created, upsert, meta
+
+      callback(null, createObj, _this.__partialInsertTransform(createObj, response), true, _this.__getMeta(createObj));
+    });
+  };
+
+  ElasticProvider.prototype.__update = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+
+    var _this = this;
+
+    //[start:{"key":"__update", "self":"_this"}:start]
+
+    var elasticMessage = {
+      "index": index,
+      "type": route.type,
+      id: path,
+      body: {
+        doc: {
+          modified: modifiedOn,
+          timestamp: timestamp,
+          path: path,
+          data: setData.data
+        },
+        upsert: {
+          created: modifiedOn,
+          modified: modifiedOn,
+          timestamp: timestamp,
+          path: path,
+          data: setData.data
+        }
+      },
+      _source: true,
+      refresh: options.refresh,
+      retry_on_conflict: options.retries
+    };
+
+    if (options.modifiedBy) {
+
+      elasticMessage.body.upsert.modifiedBy = options.modifiedBy;
+      elasticMessage.body.doc.modifiedBy = options.modifiedBy;
+      elasticMessage.body.upsert.createdBy = options.modifiedBy;
+    }
+
+    if (setData._tag) {
+
+      elasticMessage.body.doc._tag = setData._tag;
+      elasticMessage.body.upsert._tag = setData._tag;
+    }
+
+    _this.db.update(elasticMessage, function (e, response) {
+
+      //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
+
+      if (e) return callback(e);
+
+      var data = response.get._source;
+
+      var created = null;
+
+      if (response.result == 'created') created = _this.__partialTransform(response.get, index, route.type);
+
+      callback(null, data, created, true, _this.__getMeta(response.get._source));
+    });
   };
 
   ElasticProvider.prototype.remove = function (path, callback) {
 
     var _this = this;
+
+    //[start:{"key":"remove", "self":"_this"}:start]
 
     var multiple = path.indexOf('*') > -1;
 
@@ -174,6 +257,8 @@ function ElasticProvider(config) {
       if (e) return callback(e);
 
       var handleResponse = function (e) {
+
+        //[end:{"key":"remove", "self":"_this", "error":"e"}:end]
 
         if (e) return callback(e);
 
@@ -235,11 +320,16 @@ function ElasticProvider(config) {
 
     var searchPath = _this.preparePath(path);
 
+    //[start:{"key":"find", "self":"_this"}:start]
+
     _this.__getRoute(searchPath, null, 'find', function (e, route) {
 
       if (e) return callback(e);
 
-      if (route.noIndexYet) return callback(null, []);
+      if (route.noIndexYet) {
+        //[end:{"key":"find", "self":"_this"}:end]
+        return callback(null, []);
+      }
 
       var elasticMessage = {
         "index": route.index,
@@ -282,6 +372,8 @@ function ElasticProvider(config) {
 
         .then(function (resp) {
 
+          //[end:{"key":"find", "self":"_this"}:end]
+
           if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
 
             var found = resp.hits.hits;
@@ -299,11 +391,17 @@ function ElasticProvider(config) {
 
   ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
 
+    var _this = this;
+
+    //[start:{"key":"findOne", "self":"_this"}:start]
+
     var path = criteria.path;
 
     delete criteria.path;
 
-    this.find(path, {options: fields, criteria: criteria}, function (e, results) {
+    _this.find(path, {options: fields, criteria: criteria}, function (e, results) {
+
+      //[end:{"key":"findOne", "self":"_this"}:end]
 
       if (e) return callback(e);
 
@@ -316,6 +414,10 @@ function ElasticProvider(config) {
   };
 
   ElasticProvider.prototype.count = function (message, callback) {
+
+    var _this = this;
+
+    //[start:{"key":"count", "self":"_this"}:start]
 
     var countMessage = {
       index: message.index,
@@ -332,7 +434,9 @@ function ElasticProvider(config) {
 
     else if (message.body) countMessage.body = message.body;
 
-    this.db.count(countMessage, function (e, response) {
+    _this.db.count(countMessage, function (e, response) {
+
+       //[end:{"key":"count", "self":"_this"}:end]
 
       if (e) return callback(e);
 
@@ -359,6 +463,7 @@ function ElasticProvider(config) {
       _index: dataItem._index ? dataItem._index : index,
       _type: dataItem._type ? dataItem._type : type,
       _score: dataItem._score,
+      _version: dataItem._version,
       _tag: dataItem._source._tag,
       created: dataItem._source.created,
       deleted: dataItem._source.deleted,
@@ -370,7 +475,27 @@ function ElasticProvider(config) {
     };
   };
 
+  ElasticProvider.prototype.__partialInsertTransform = function (createdObj, response) {
+
+    return {
+      _id: response._id,
+      _index: response._index,
+      _type: response._type,
+      _version: response._version,
+      _tag: createdObj._tag,
+      created: createdObj.created,
+      deleted: createdObj.deleted,
+      modified: createdObj.modified,
+      createdBy: createdObj.createdBy,
+      modifiedBy: createdObj.modifiedBy,
+      deletedBy: createdObj.deletedBy,
+      data: createdObj.data
+    };
+  };
+
   ElasticProvider.prototype.transform = function (dataObj, meta) {
+
+    //[start:{"key":"transform", "self":"this"}:start]
 
     var transformed = {data: dataObj.data};
 
@@ -396,6 +521,8 @@ function ElasticProvider(config) {
 
     if (dataObj._tag) transformed._meta.tag = dataObj._tag;
 
+    //[end:{"key":"transform", "self":"this"}:end]
+
     return transformed;
   };
 
@@ -410,6 +537,8 @@ function ElasticProvider(config) {
   };
 
   ElasticProvider.prototype.__parseFields = function (fields) {
+
+    //[start:{"key":"__parseFields", "self":"this"}:start]
 
     traverse(fields).forEach(function (value) {
 
@@ -462,6 +591,8 @@ function ElasticProvider(config) {
       }
     });
 
+        //[end:{"key":"__parseFields", "self":"this"}:end]
+
     return fields;
   };
 
@@ -498,6 +629,8 @@ function ElasticProvider(config) {
 
     //strips out duplicate sequential wildcards, ie simon***bishop -> simon*bishop
 
+    //[start:{"key":"preparePath", "self":"this"}:start]
+
     if (!path) return '*';
 
     var prepared = '';
@@ -512,6 +645,8 @@ function ElasticProvider(config) {
 
       lastChar = path[i];
     }
+
+    //[end:{"key":"preparePath", "self":"this"}:end]
 
     return prepared;
   };
@@ -672,6 +807,8 @@ function ElasticProvider(config) {
 
     var _this = this;
 
+    //[start:{"key":"__getRoute", "self":"_this"}:start]
+
     var route = null;
 
     if (typeof data == 'function') {
@@ -690,23 +827,31 @@ function ElasticProvider(config) {
       return route == null;
     });
 
-    if (!route) return callback(new Error('route for path ' + path + ' does not exist'));
+    if (!route) {
+      //[end:{"key":"__getRoute", "self":"_this"}:end]
+      return callback(new Error('route for path ' + path + ' does not exist'));
+    }
 
     if (route.dynamic)
 
       return _this.__prepareDynamicIndex(route, path, data, operation, function (e, dynamicRoute, data) {
+
+        //[end:{"key":"__getRoute", "self":"_this"}:end]
 
         if (e) return callback(e);
 
         callback(null, dynamicRoute, data);
       });
 
+    //[end:{"key":"__getRoute", "self":"_this"}:end]
     return callback(null, {index: route.index, type: _this.config.defaultType}, data);
   };
 
   ElasticProvider.prototype.__createDynamicObject = function (dynamicParts, data) {
 
     try {
+
+      //[start:{"key":"__createDynamicObject", "self":"this"}:start]
 
       Object.keys(dynamicParts.values).forEach(function (dynamicValueKey) {
 
@@ -733,10 +878,13 @@ function ElasticProvider(config) {
         data[dynamicValueKey] = value;
       });
 
+      //[end:{"key":"__createDynamicObject", "self":"this"}:end]
+
       return data;
 
     } catch (e) {
 
+      //[end:{"key":"__createDynamicObject", "self":"this", "error":"e"}:end]
       throw new Error('failed to generate dynamic object', e);
     }
   };
@@ -744,6 +892,8 @@ function ElasticProvider(config) {
   ElasticProvider.prototype.__createDynamicIndex = function (dynamicParts, callback) {
 
     var _this = this;
+
+    //[start:{"key":"__createDynamicIndex", "self":"_this"}:start]
 
     if (/[A-Z-+_*$@#$%&!]/.test(dynamicParts.index)) return callback(new Error('bad dynamic index name: ' + dynamicParts.index + ' must be lowercase with no special characterssuch as A-Z-+_*$@#$%&!'));
 
@@ -758,6 +908,8 @@ function ElasticProvider(config) {
       indexJSON.body.mappings[dynamicParts.type].properties[dynamicField.name] = {type: dynamicField.type};
     });
 
+    //[end:{"key":"__createDynamicIndex", "self":"_this"}:end]
+
     _this.__createIndex(dynamicParts.index, indexJSON, callback);
   };
 
@@ -765,11 +917,18 @@ function ElasticProvider(config) {
 
     var _this = this;
 
+    //[start:{"key":"__cacheRoute", "self":"_this"}:start]
+
     var cacheKey = parts.index + '_' + parts.type;
 
-    if (_this.routeCache) return _this.routeCache.set(cacheKey, parts, callback);
+    if (_this.routeCache) {
+      //[end:{"key":"__cacheRoute", "self":"_this"}:end]
+      return _this.routeCache.set(cacheKey, parts, callback);
+    }
 
     _this.__dynamicRoutes[cacheKey] = parts;
+
+    //[end:{"key":"__cacheRoute", "self":"_this"}:end]
 
     callback();
   };
@@ -778,10 +937,17 @@ function ElasticProvider(config) {
 
     var _this = this;
 
+    //[start:{"key":"__getRouteFromCache", "self":"_this"}:start]
+
     var cacheKey = parts.index + '_' + parts.type;
 
-    if (_this.routeCache) return _this.routeCache.get(cacheKey, callback);
+    if (_this.routeCache) {
 
+      //[end:{"key":"__getRouteFromCache", "self":"_this"}:end]
+      return _this.routeCache.get(cacheKey, callback);
+    }
+
+    //[end:{"key":"__getRouteFromCache", "self":"_this"}:end]
     callback(null, this.__dynamicRoutes[cacheKey]);
   };
 
@@ -789,7 +955,11 @@ function ElasticProvider(config) {
 
     var _this = this;
 
+    //[start:{"key":"__routeCreatedAlready", "self":"_this"}:start]
+
     _this.__getRouteFromCache(parts, function (e, route) {
+
+      //[end:{"key":"__routeCreatedAlready", "self":"_this"}:end]
 
       if (e) return callback(e);
 
@@ -804,6 +974,8 @@ function ElasticProvider(config) {
 
     var _this = this;
 
+    //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
+
     var indexSegments = dataStoreRoute.pattern.split('/');
 
     var pathSegments = path.split('/');
@@ -817,6 +989,7 @@ function ElasticProvider(config) {
       if (segment.indexOf("{{") == 0) {
 
         var fieldSegment = segment.replace("{{", "").replace("}}", "");
+
         if (fieldSegment == 'index') {
 
           dynamicParts.index = pathSegments[segmentIndex];
@@ -845,6 +1018,8 @@ function ElasticProvider(config) {
 
     _this.__routeCreatedAlready(dynamicParts, function (e, createdAlready) {
 
+      //[end:{"key":"__prepareDynamicIndex", "self":"_this"}:end]
+
       if (e) return callback(e);
 
       if (createdAlready) return callback(null, dynamicParts, data);
@@ -870,15 +1045,17 @@ function ElasticProvider(config) {
     });
   };
 
-
   ElasticProvider.prototype.__createIndex = function (index, indexConfig, callback) {
 
     var _this = this;
+
+     //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
 
     _this.db.indices.create(indexConfig, function (e, response) {
 
       if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
 
+        //[end:{"key":"__prepareDynamicIndex", "self":"_this"}:end]
         return callback(new Error('failed creating index ' + index + ':' + e.toString(), e));
       }
 
@@ -889,6 +1066,8 @@ function ElasticProvider(config) {
   ElasticProvider.prototype.__buildIndexObj = function (indexConfig) {
 
     var _this = this;
+
+    //[start:{"key":"__buildIndexObj", "self":"_this"}:start]
 
     if (indexConfig.index == null) indexConfig.index = _this.config.defaultIndex;
 
@@ -926,6 +1105,8 @@ function ElasticProvider(config) {
           indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] = indexConfig.body.mappings[indexConfig.type].properties[fieldName];
         }
       });
+
+    //[end:{"key":"__buildIndexObj", "self":"_this"}:end]
 
     return indexJSON;
   };
