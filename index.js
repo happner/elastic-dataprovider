@@ -15,13 +15,6 @@ function ElasticProvider(config) {
     if (!config.cache.cacheId) config.cache.cacheId = config.name;
   }
 
-  if (config.routeCache) {
-
-    if (config.routeCache === true) config.routeCache = {};
-
-    if (!config.routeCache.cacheId) config.routeCache.cacheId = config.name + '-routes';
-  }
-
   if (!config.defaultIndex) config.defaultIndex = 'happner';
 
   if (!config.defaultType) config.defaultType = 'happner';
@@ -67,8 +60,6 @@ ElasticProvider.prototype.UPSERT_TYPE = {
         if (e) return callback(e);
 
         Object.defineProperty(_this, 'db', {value: client});
-
-        if (_this.config.routeCache) _this.setUpRouteCache();
 
         if (_this.config.cache) _this.setUpCache();
 
@@ -140,6 +131,11 @@ ElasticProvider.prototype.UPSERT_TYPE = {
   ElasticProvider.prototype.__bulk = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
     callback(new Error('bulk not implemented yet'));
   };
+
+  ElasticProvider.prototype.__index = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+
+  };
+
 
   ElasticProvider.prototype.__insert = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
 
@@ -662,14 +658,6 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
 /* caches */
 {
-  ElasticProvider.prototype.setUpRouteCache = function () {
-
-    var cache = new Cache(this.config.routeCache);
-
-    Object.defineProperty(this, 'routeCache', {value: cache});
-
-    console.warn('route caching is on, be sure you have redis up.');
-  };
 
   ElasticProvider.prototype.setUpCache = function () {
 
@@ -913,26 +901,6 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     _this.__createIndex(dynamicParts.index, indexJSON, callback);
   };
 
-  ElasticProvider.prototype.__cacheRoute = function (parts, callback) {
-
-    var _this = this;
-
-    //[start:{"key":"__cacheRoute", "self":"_this"}:start]
-
-    var cacheKey = parts.index + '_' + parts.type;
-
-    if (_this.routeCache) {
-      //[end:{"key":"__cacheRoute", "self":"_this"}:end]
-      return _this.routeCache.set(cacheKey, parts, callback);
-    }
-
-    _this.__dynamicRoutes[cacheKey] = parts;
-
-    //[end:{"key":"__cacheRoute", "self":"_this"}:end]
-
-    callback();
-  };
-
   ElasticProvider.prototype.__getRouteFromCache = function (parts, callback) {
 
     var _this = this;
@@ -1014,34 +982,24 @@ ElasticProvider.prototype.UPSERT_TYPE = {
       }
     });
 
-    if (data) data = _this.__createDynamicObject(dynamicParts, data);
+    if (data && dynamicParts.fields.length > 0) data = _this.__createDynamicObject(dynamicParts, data);
 
-    _this.__routeCreatedAlready(dynamicParts, function (e, createdAlready) {
+    if (_this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type]) return callback(null, dynamicParts, data);
 
-      //[end:{"key":"__prepareDynamicIndex", "self":"_this"}:end]
+    if (operation != "upsert") {
+
+      dynamicParts.noIndexYet = true;
+
+      return callback(null, dynamicParts, data);
+    }
+
+    _this.__createDynamicIndex(dynamicParts, function (e) {
 
       if (e) return callback(e);
 
-      if (createdAlready) return callback(null, dynamicParts, data);
+      _this.__dynamicRoutes[dynamicParts.index + '_' + dynamicParts.type] = dynamicParts;
 
-      if (operation != "upsert") {
-
-        dynamicParts.noIndexYet = true;
-
-        return callback(null, dynamicParts, data);
-      }
-
-      _this.__createDynamicIndex(dynamicParts, function (e) {
-
-        if (e) return callback(e);
-
-        _this.__cacheRoute(dynamicParts, function (e) {
-
-          if (e) return callback(e);
-
-          callback(null, dynamicParts, data);
-        });
-      });
+      callback(null, dynamicParts, data);
     });
   };
 

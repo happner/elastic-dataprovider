@@ -92,22 +92,6 @@ describe('perf', function () {
     serviceInstance.stop(done);
   });
 
-  var N_UPSERT = 1000;
-
-  var N_UPSERT_SEC = 2;
-
-  var N_INSERT = 2000;
-
-  var N_INSERT_SEC = 2;
-
-  var N_REMOVE = 2000;
-
-  var N_REMOVE_SEC = 2;
-
-  var N_BULK = 2000;
-
-  var N_BULK_SEC = 2;
-
   var ROUTE_COUNT = 5;
 
   var ROW_COUNT = 100;
@@ -400,8 +384,11 @@ describe('perf', function () {
     var successes = [];
 
     for (var i = 0; i < ROUTE_COUNT_INSERT; i++) {
+
       var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+
       var route = '/dynamic/' + index + '/test_type';
+
       routes.push(route);
     }
 
@@ -480,6 +467,209 @@ describe('perf', function () {
     });
   });
 
+  var ROW_COUNT_DIRECT = 100;
+  var DELAY_DIRECT = 2000;
+
+  it('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items', function (done) {
+
+    this.timeout(1000 * ROW_COUNT_DIRECT + DELAY_DIRECT);
+
+    var routes = [];
+    var rows = [];
+    var errors = [];
+    var successes = [];
+
+    for (var i = 0; i < 1; i++) {
+      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+      var route = '/dynamic/' + index + '/test_type';
+      routes.push(route);
+    }
+
+    for (var i = 0; i < ROW_COUNT_DIRECT; i++) {
+        rows.push(routes[0] + '/route_1/' + Date.now().toString() + '/' + i.toString());
+    }
+
+    var started = Date.now();
+
+    getElasticClient(function(e, client){
+
+      if (e) return done(e);
+
+      async.each(rows, function (row, callback) {
+
+        var elasticMessage = {
+          "index": 'happner',
+          "type": 'happner',
+          id: row,
+          body: {data: {"test": row}},
+          refresh: false
+        };
+
+        client.create(elasticMessage, function (e, created) {
+
+          if (e) {
+
+            errors.push({row: row, error: e});
+            return callback(e);
+          }
+
+          successes.push({row: row, created: created});
+
+          callback();
+        });
+
+      }, function (e) {
+
+        if (e) return done(e);
+
+        var errorHappened = false;
+
+        var duration = Date.now() - started;
+
+        console.log('duration of push: ', duration);
+
+        var rate = 1000 / (duration / ROW_COUNT_DIRECT);
+
+        console.log('DIRECTed at a rate of ' + rate + ' per sec, DELAY_DIRECT of ' + DELAY_DIRECT + 'ms before confirming via find...');
+
+        setTimeout(function () {
+
+          async.eachSeries(successes, function (successfulRow, successfulRowCallback) {
+
+            var callbackError = function (error) {
+
+              if (!errorHappened) {
+                errorHappened = true;
+                successfulRowCallback(error)
+              }
+            };
+
+            serviceInstance.find(successfulRow.row, {}, function (e, data) {
+
+              if (e) return callbackError(e);
+
+              if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
+
+              if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.row));
+
+              successfulRowCallback();
+            });
+
+          }, function(){
+
+            if (e) return done(e);
+
+            console.log('data confirmed in database.');
+
+            done();
+          });
+
+        }, DELAY_DIRECT);
+      });
+
+    });
+  });
+
+  it('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items with http agent', function (done) {
+
+    this.timeout(1000 * ROW_COUNT_DIRECT + DELAY_DIRECT);
+
+    var routes = [];
+    var rows = [];
+    var errors = [];
+    var successes = [];
+
+    for (var i = 0; i < 1; i++) {
+      var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+      var route = '/dynamic/' + index + '/test_type';
+      routes.push(route);
+    }
+
+    for (var i = 0; i < ROW_COUNT_DIRECT; i++) {
+      rows.push(routes[0] + '/route_1/' + Date.now().toString() + '/' + i.toString());
+    }
+
+    var started = Date.now();
+
+    getElasticClientAgent(function(e, client){
+
+      if (e) return done(e);
+
+      async.each(rows, function (row, callback) {
+
+        var elasticMessage = {
+          "index": 'happner',
+          "type": 'happner',
+          id: row,
+          body: {data: {"test": row}},
+          refresh: false
+        };
+
+        client.create(elasticMessage, function (e, created) {
+
+          if (e) {
+
+            errors.push({row: row, error: e});
+            return callback(e);
+          }
+
+          successes.push({row: row, created: created});
+
+          callback();
+        });
+
+      }, function (e) {
+
+        if (e) return done(e);
+
+        var errorHappened = false;
+
+        var duration = Date.now() - started;
+
+        console.log('duration of push: ', duration);
+
+        var rate = 1000 / (duration / ROW_COUNT_DIRECT);
+
+        console.log('DIRECTed at a rate of ' + rate + ' per sec, DELAY_DIRECT of ' + DELAY_DIRECT + 'ms before confirming via find...');
+
+        setTimeout(function () {
+
+          async.eachSeries(successes, function (successfulRow, successfulRowCallback) {
+
+            var callbackError = function (error) {
+
+              if (!errorHappened) {
+                errorHappened = true;
+                successfulRowCallback(error)
+              }
+            };
+
+            serviceInstance.find(successfulRow.row, {}, function (e, data) {
+
+              if (e) return callbackError(e);
+
+              if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
+
+              if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.row));
+
+              successfulRowCallback();
+            });
+
+          }, function(){
+
+            if (e) return done(e);
+
+            console.log('data confirmed in database.');
+
+            done();
+          });
+
+        }, DELAY_DIRECT);
+      });
+
+    });
+  });
+
   var getElasticClient = function (callback) {
 
     var elasticsearch = require('elasticsearch');
@@ -487,6 +677,35 @@ describe('perf', function () {
     try {
 
       var client = new elasticsearch.Client({"host": "localhost:9200"});
+
+      client.ping({
+        requestTimeout: 30000
+      }, function (e) {
+
+        if (e) return callback(e);
+
+        callback(null, client);
+      });
+    } catch (e) {
+      callback(e);
+    }
+  };
+
+  var getElasticClientAgent = function (callback) {
+
+    var AgentKeepAlive = require('agentkeepalive');
+
+    var elasticsearch = require('elasticsearch');
+
+    var baseConfig = {};
+
+    baseConfig.createNodeAgent = function (connection, config) {
+      return new AgentKeepAlive(connection.makeAgentConfig(config));
+    };
+
+    try {
+
+      var client = new elasticsearch.Client(baseConfig);
 
       client.ping({
         requestTimeout: 30000
