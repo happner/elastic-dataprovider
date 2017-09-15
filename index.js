@@ -30,10 +30,11 @@ function ElasticProvider(config) {
 }
 
 ElasticProvider.prototype.UPSERT_TYPE = {
-  insert:0,
-  upsert:1,
-  bulk:2,
-  index:3
+  upsert:0,
+  update:1,
+  insert:2,
+  bulk:3,
+  index:4
 };
 
 /* initialize and stop */

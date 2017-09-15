@@ -306,7 +306,7 @@ describe('perf', function () {
 
     async.each(rows, function (row, callback) {
 
-      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:0}, false, function (e, response, created) {
+      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:2}, false, function (e, response, created) {
 
         if (e) {
 
@@ -399,7 +399,7 @@ describe('perf', function () {
 
     async.each(rows, function (row, callback) {
 
-      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:0, refresh:false}, false, function (e, response, created) {
+      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:2, refresh:false}, false, function (e, response, created) {
 
         if (e) {
 
@@ -492,7 +492,7 @@ describe('perf', function () {
 
     async.eachSeries(rows, function (row, callback) {
 
-      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:0, refresh:false}, false, function (e, response, created) {
+      serviceInstance.upsert(row, {data: {"test": row}}, {upsertType:2, refresh:false}, false, function (e, response, created) {
 
         if (e) {
 
