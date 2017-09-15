@@ -13,4 +13,4 @@ services:
   - redis-server
 script: "npm test"
 before_script:
-  - sleep 10
+  - sleep 15

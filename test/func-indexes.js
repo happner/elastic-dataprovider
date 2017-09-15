@@ -40,11 +40,11 @@ describe('func-indexes', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{{index}}/{{type}}/{{dynamic0}}/{{dynamic1:date}}/{{dynamic2:integer}}"
+        pattern: "/dynamic/{index}/{type}/*"
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamicType/{{index}}/*",
+        pattern: "/dynamicType/{index}/*",
         type: 'dynamic'
       },
       {
@@ -226,10 +226,6 @@ describe('func-indexes', function () {
 
                 expect(dynamictems0[0]._source.path).to.be(path1);
 
-                expect(dynamictems0[0]._source.data['dynamic0']).to.be('dynamicValue0');
-
-                expect(dynamictems0[0]._source.data['dynamic1']).to.be(parseInt(now1));
-
                 expect(dynamictems1.length).to.be(1);
 
                 expect(dynamictems1[0]._index).to.be(testId);
@@ -237,10 +233,6 @@ describe('func-indexes', function () {
                 expect(dynamictems1[0]._type).to.be('dynamicType1');
 
                 expect(dynamictems1[0]._source.path).to.be(path2);
-
-                expect(dynamictems1[0]._source.data['dynamic0']).to.be('dynamicValue0');
-
-                expect(dynamictems1[0]._source.data['dynamic1']).to.be(parseInt(now2));
 
                 done();
               });

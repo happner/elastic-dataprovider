@@ -24,6 +24,8 @@ test/private/*
 .idea/
 .editorconfig
 
+*.analyzed.js
+
 coverage/*
 
 .DS_Store
