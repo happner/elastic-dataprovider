@@ -1,4 +1,4 @@
-xdescribe('func-indexes', function () {
+describe('func-indexes', function () {
 
   this.timeout(5000);
 
