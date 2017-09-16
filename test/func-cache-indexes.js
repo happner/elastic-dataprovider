@@ -42,7 +42,7 @@ describe('func-indexes, with route and data caching', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{{index}}/{{type}}/{{dynamic0}}/{{dynamic1:date}}/{{dynamic2:integer}}"
+        pattern: "/dynamic/{index}/{type}/*"
       },
       {
         pattern: "*",
@@ -187,7 +187,7 @@ describe('func-indexes, with route and data caching', function () {
 
     var path1 = '/dynamic/' + testId + '/dynamicType0/dynamicValue0/' + now1;
 
-    var path2 = '/dynamic/' + testId + '/dynamicType1/dynamicValue0/' + now2
+    var path2 = '/dynamic/' + testId + '/dynamicType1/dynamicValue0/' + now2;
 
     serviceInstance.upsert(path1, {data: {"test": "dynamic0"}}, {}, false, function (e, response, created) {
 
@@ -219,10 +219,6 @@ describe('func-indexes, with route and data caching', function () {
 
                 expect(dynamictems0[0]._source.path).to.be(path1);
 
-                expect(dynamictems0[0]._source.data['dynamic0']).to.be('dynamicValue0');
-
-                expect(dynamictems0[0]._source.data['dynamic1']).to.be(parseInt(now1));
-
                 expect(dynamictems1.length).to.be(1);
 
                 expect(dynamictems1[0]._index).to.be(testId);
@@ -230,10 +226,6 @@ describe('func-indexes, with route and data caching', function () {
                 expect(dynamictems1[0]._type).to.be('dynamicType1');
 
                 expect(dynamictems1[0]._source.path).to.be(path2);
-
-                expect(dynamictems1[0]._source.data['dynamic0']).to.be('dynamicValue0');
-
-                expect(dynamictems1[0]._source.data['dynamic1']).to.be(parseInt(now2));
 
                 done();
               });

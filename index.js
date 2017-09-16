@@ -30,10 +30,10 @@ function ElasticProvider(config) {
 }
 
 ElasticProvider.prototype.UPSERT_TYPE = {
-  insert:0,
-  upsert:1,
-  bulk:2,
-  index:3
+  upsert:0,
+  update:1,
+  insert:2,
+  bulk:3
 };
 
 /* initialize and stop */
@@ -288,8 +288,6 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
       if (response.result == 'created') created = _this.__partialTransform(response.get, index, route.type);
 
-      //console.log('upserted:::', elasticMessage);
-
       callback(null, data, created, true, _this.__getMeta(response.get._source));
     });
   };
@@ -421,8 +419,6 @@ ElasticProvider.prototype.UPSERT_TYPE = {
           }
         });
       }
-
-      //console.log('searching:::', JSON.stringify(elasticMessage));
 
       _this.db.search(elasticMessage)
 

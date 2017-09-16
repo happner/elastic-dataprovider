@@ -116,7 +116,9 @@ describe('func', function () {
     });
   });
 
-  it.only('gets data with wildcard', function (callback) {
+  it('gets data with wildcard', function (callback) {
+
+    this.timeout(5000);
 
     serviceInstance.upsert('/get/multiple/1/' + testId, {data: {"test": "data"}}, {}, false, function (e, response) {
 
@@ -126,19 +128,22 @@ describe('func', function () {
 
         if (e) return callback(e);
 
-        serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
+        setTimeout(function(){
 
-          if (e) return callback(e);
+          serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
 
-          expect(response.length).to.equal(2);
+            if (e) return callback(e);
 
-          expect(response[0].data.test).to.equal('data');
+            expect(response.length).to.equal(2);
 
-          expect(response[1].data.test).to.equal('data');
+            expect(response[0].data.test).to.equal('data');
 
-          callback();
+            expect(response[1].data.test).to.equal('data');
 
-        });
+            callback();
+
+          });
+        }, 2000);
       });
     });
   });
