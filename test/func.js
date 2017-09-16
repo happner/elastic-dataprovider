@@ -413,4 +413,41 @@ describe('func', function () {
       }
     );
   });
+
+  it('tests a bulk insert', function (done) {
+
+    var bulkItems = [
+      {
+        path:'/bulk/test/1',
+        data:{
+          test:1
+        }
+      },{
+        path:'/bulk/test/2',
+        data:{
+          test:2
+        }
+      },{
+        path:'/bulk/test/3',
+        data:{
+          test:3
+        }
+      },{
+        path:'/bulk/test/4',
+        data:{
+          test:4
+        }
+      }
+    ];
+
+    serviceInstance.upsert(bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
+
+      if (e) return done(e);
+
+      console.log('inserted:::', inserted);
+
+      done();
+
+    });
+  });
 });

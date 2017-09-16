@@ -46,6 +46,8 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     try {
 
+      _this.__initializeRoutes();
+
       //yada yada yada: https://github.com/elastic/elasticsearch-js/issues/196
       var AgentKeepAlive = require('agentkeepalive');
 
@@ -79,6 +81,18 @@ ElasticProvider.prototype.UPSERT_TYPE = {
   };
 }
 
+
+ElasticProvider.prototype.__initializeRoutes = function () {
+
+  var _this = this;
+
+  _this.config.dataroutes.forEach(function (route) {
+
+    if (!route.index) route.index = _this.config.defaultIndex;
+    if (!route.type) route.type = _this.config.defaultType;
+  });
+};
+
 /* upsert, insert, update and remove */
 {
 
@@ -88,53 +102,55 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     //[start:{"key":"upsert", "self":"_this"}:start]
 
-    var modifiedOn = Date.now();
+    try{
 
-    var timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
+      if (Array.isArray(path)){
 
-    if (!options) options = {};
+        callback = dataWasMerged;
+        options = setData;
+        setData = path;
 
-    if (options.refresh == null) options.refresh = true; //slow but reliable
-
-    if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
-
-    if (options.retries == null) options.retries = 20;
-
-    this.__getRoute(path, function (e, route, dynamic) {
-
-      //[end:{"key":"upsert", "self":"_this", "error":"e"}:end]
-
-      if (e) return callback(e);
-
-      try{
-
-        var index = route.index;
-
-        if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically
-          return _this.__insert(path, setData, options, index, route, timestamp, modifiedOn, callback);
-
-        _this.__checkFor (dynamic, route)
-
-          .then(function(){
-
-            if (options.upsertType == _this.UPSERT_TYPE.bulk)
-              return _this.__bulk(path, setData, options, index, route, timestamp, modifiedOn, callback);
-
-            _this.__update(path, setData, options, index, route, timestamp, modifiedOn, callback);
-          })
-
-          .catch(callback);
-
-      }catch(e){
-
-        callback(e);
+        options.upsertType = _this.UPSERT_TYPE.bulk;
       }
-    });
+
+      var modifiedOn = Date.now();
+
+      var timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
+
+      if (!options) options = {};
+
+      if (options.refresh == null) options.refresh = true; //slow but reliable
+
+      if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
+
+      if (options.retries == null) options.retries = 20;
+
+      var route = _this.__getRoute(path, options);
+
+      if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically using "index"
+        return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
+
+      if (options.upsertType == _this.UPSERT_TYPE.bulk)
+        return _this.__bulk(setData, options, route, timestamp, modifiedOn, callback);
+
+      _this.__ensureDynamic (route)//upserting so we need to make sure our index exists
+
+        .then(function(){
+
+          _this.__update(path, setData, options, route, timestamp, modifiedOn, callback);
+        })
+
+        .catch(callback);
+
+    }catch(e){
+
+      callback(e);
+    }
   };
 
   var dynamicRoutes = {};
 
-  ElasticProvider.prototype.__checkFor = function(dynamic, route){
+  ElasticProvider.prototype.__ensureDynamic = function(route){
 
     var _this = this;
 
@@ -142,7 +158,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
       try{
 
-        if (!dynamic || dynamicRoutes[route.index]) return resolve();
+        if (!route.dynamic || dynamicRoutes[route.index]) return resolve();
 
         _this.__createDynamicIndex(route, function(e){
 
@@ -173,7 +189,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     _this.__createIndex(dynamicParts.index, indexJSON, callback);
   };
 
-  ElasticProvider.prototype.__insert = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+  ElasticProvider.prototype.__insert = function (path, setData, options, route, timestamp, modifiedOn, callback) {
 
     var _this = this;
 
@@ -225,11 +241,43 @@ ElasticProvider.prototype.UPSERT_TYPE = {
     });
   };
 
-  ElasticProvider.prototype.__bulk = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
-    callback(new Error('bulk not implemented yet'));
+  ElasticProvider.prototype.__bulk = function (setData, options, index, route, timestamp, modifiedOn, callback) {
+
+    var _this = this;
+
+    //[start:{"key":"__bulk", "self":"_this", "error":"e"}:start]
+
+    if (!Array.isArray(setData)) return callback(new Error('__bulk failed: TypeError - ex[ected array'));
+
+    var bulkMessage = _this.__createBulkMessage(setData, options, route, timestamp, modifiedOn);
+
+    _this.db.update(bulkMessage, function (e, response) {
+
+      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
+
+      if (e) return callback(e);
+
+      var responseData = _this.__getBulkData (setData, response);
+
+      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
+
+      callback(null, responseData, responseData, true, _this.__getBulkMeta (response));
+    });
   };
 
-  ElasticProvider.prototype.__update = function (path, setData, options, index, route, timestamp, modifiedOn, callback) {
+  ElasticProvider.prototype.__createBulkMessage = function(setData, response){
+
+  };
+
+  ElasticProvider.prototype.__getBulkData = function(setData, response){
+
+  };
+
+  ElasticProvider.prototype.__getBulkMeta = function(response){
+
+  };
+
+  ElasticProvider.prototype.__update = function (path, setData, options, route, timestamp, modifiedOn, callback) {
 
     var _this = this;
 
@@ -237,7 +285,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     var elasticMessage = {
 
-      "index": index,
+      "index": route.index,
       "type": route.type,
       id: path,
 
@@ -302,62 +350,59 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     var deletedCount = 0;
 
-    this.__getRoute(path, function (e, route) {
+    var route = _this.__getRoute(path);
+
+    var handleResponse = function (e) {
+
+      //[end:{"key":"remove", "self":"_this", "error":"e"}:end]
 
       if (e) return callback(e);
 
-      var handleResponse = function (e) {
+      var deleteResponse = {
+        "data": {
+          "removed": deletedCount
+        },
+        '_meta': {
+          "timestamp": Date.now(),
+          "path": path
+        }
+      };
 
-        //[end:{"key":"remove", "self":"_this", "error":"e"}:end]
+      callback(null, deleteResponse);
+    };
 
-        if (e) return callback(e);
+    //we cannot delete what does not exist yet
+    if (route.noIndexYet) return handleResponse(null);
 
-        var deleteResponse = {
-          "data": {
-            "removed": deletedCount
-          },
-          '_meta': {
-            "timestamp": Date.now(),
+    var elasticMessage = {
+      index: route.index,
+      type: route.type,
+      refresh: true
+    };
+
+    if (multiple) {
+
+      elasticMessage.body = {
+        "query": {
+          "wildcard": {
             "path": path
           }
-        };
-
-        callback(null, deleteResponse);
+        }
       };
 
-      //we cannot delete what does not exist yet
-      if (route.noIndexYet) return handleResponse(null);
+      //deleteOperation = this.db.deleteByQuery.bind(this.db);
 
-      var elasticMessage = {
-        index: route.index,
-        type: route.type,
-        refresh: true
-      };
+    } else elasticMessage.id = path;
 
-      if (multiple) {
+    _this.count(elasticMessage, function (e, count) {
 
-        elasticMessage.body = {
-          "query": {
-            "wildcard": {
-              "path": path
-            }
-          }
-        };
+      if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
 
-        //deleteOperation = this.db.deleteByQuery.bind(this.db);
+      deletedCount = count;
 
-      } else elasticMessage.id = path;
+      if (multiple) _this.db.deleteByQuery(elasticMessage, handleResponse);
 
-      _this.count(elasticMessage, function (e, count) {
-
-        if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
-
-        deletedCount = count;
-
-        if (multiple) _this.db.deleteByQuery(elasticMessage, handleResponse);
-
-        else _this.db.delete(elasticMessage, handleResponse);
-      });
+      else _this.db.delete(elasticMessage, handleResponse);
     });
   };
 }
@@ -372,73 +417,70 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     //[start:{"key":"find", "self":"_this"}:start]
 
-    _this.__getRoute(searchPath, function (e, route) {
+    var route = _this.__getRoute(searchPath);
 
-      if (e) return callback(e);
+    //console.log('find route:::', route);
 
-      //console.log('find route:::', route);
+    if (route.noIndexYet) {
+      //[end:{"key":"find", "self":"_this"}:end]
+      return callback(null, []);
+    }
 
-      if (route.noIndexYet) {
-        //[end:{"key":"find", "self":"_this"}:end]
-        return callback(null, []);
-      }
-
-      var elasticMessage = {
-        "index": route.index,
-        "type": route.type,
-        "body": {
-          "query": {
-            "bool": {
-              "must": []
-            }
+    var elasticMessage = {
+      "index": route.index,
+      "type": route.type,
+      "body": {
+        "query": {
+          "bool": {
+            "must": []
           }
         }
-      };
-
-      if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
-
-      if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
-
-      if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
-
-      var returnType = searchPath.indexOf('*'); //0,1 == array -1 == single
-
-      if (returnType > -1) {
-
-        //NB: elasticsearch regexes are always anchored so elastic adds a ^ at the beginning and a $ at the end.
-
-        elasticMessage.body["query"]["bool"]["must"].push({
-          "regexp": {
-            "path": _this.escapeRegex(searchPath).replace(/\\\*/g, ".*")
-          }
-        });
-      } else {
-        elasticMessage.body["query"]["bool"]["must"].push({
-          "terms": {
-            "_id": [searchPath]
-          }
-        });
       }
+    };
 
-      _this.db.search(elasticMessage)
+    if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);//this is because the $not keyword works in nedb and sift, but not in elastic
 
-        .then(function (resp) {
+    if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
 
-          //[end:{"key":"find", "self":"_this"}:end]
+    if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
 
-          if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
+    var returnType = searchPath.indexOf('*'); //0,1 == array -1 == single
 
-            var found = resp.hits.hits;
+    if (returnType > -1) {
 
-            if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+      //NB: elasticsearch regexes are always anchored so elastic adds a ^ at the beginning and a $ at the end.
 
-            callback(null, _this.__partialTransformAll(found));
+      elasticMessage.body["query"]["bool"]["must"].push({
+        "regexp": {
+          "path": _this.escapeRegex(searchPath).replace(/\\\*/g, ".*")
+        }
+      });
+    } else {
+      elasticMessage.body["query"]["bool"]["must"].push({
+        "terms": {
+          "_id": [searchPath]
+        }
+      });
+    }
 
-          } else callback(null, []);
+    _this.db.search(elasticMessage)
 
-        })
-        .catch(callback);
-    });
+      .then(function (resp) {
+
+        //[end:{"key":"find", "self":"_this"}:end]
+
+        if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
+
+          var found = resp.hits.hits;
+
+          if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+
+          callback(null, _this.__partialTransformAll(found));
+
+        } else callback(null, []);
+
+      })
+      .catch(callback);
   };
 
   ElasticProvider.prototype.findOne = function (criteria, fields, callback) {
@@ -868,16 +910,17 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     if (!route) {
       //[end:{"key":"__getRoute", "self":"_this"}:end]
-      return callback(new Error('route for path ' + path + ' does not exist'));
+      throw new Error('route for path ' + path + ' does not exist');
     }
 
     if (route.dynamic){
+
       //[end:{"key":"__getRoute", "self":"_this"}:end]
-      return callback(null, _this.__getDynamicParts(route, path), true);
+      return  _this.__getDynamicParts(route, path);
     }
 
     //[end:{"key":"__getRoute", "self":"_this"}:end]
-    return callback(null, {index: route.index, type: _this.config.defaultType});
+    return route;
   };
 }
 
@@ -889,7 +932,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
 
     //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
 
-    var dynamicParts = {};
+    var dynamicParts = {dynamic:true};
 
     var pathSegments = path.split('/');
 
