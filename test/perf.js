@@ -89,7 +89,7 @@ describe('perf', function () {
 
   var ROUTE_COUNT = 5;
 
-  var ROW_COUNT = 100;
+  var ROW_COUNT = 1000;
 
   var DELAY = 2000;
 
@@ -276,7 +276,7 @@ describe('perf', function () {
   });
 
   var ROUTE_COUNT_INSERT = 5;
-  var ROW_COUNT_INSERT = 100;
+  var ROW_COUNT_INSERT = 1000;
   var DELAY_INSERT = 2000;
 
   it('tests parallel dynamic routes, creating ' + ROUTE_COUNT_INSERT + ' routes and pushing ' + ROW_COUNT_INSERT + ' data items into the routes via the insert operation', function (done) {
