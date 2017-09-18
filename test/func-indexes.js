@@ -40,11 +40,11 @@ describe('func-indexes', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{index}/{type}/*"
+        pattern: "/dynamic/{{index}}/{{type}}/*"
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamicType/{index}/*",
+        pattern: "/dynamicType/{{index}}/*",
         type: 'dynamic'
       },
       {

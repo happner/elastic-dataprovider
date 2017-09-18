@@ -42,7 +42,7 @@ describe('perf', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{index}/{type}/*"
+        pattern: "/dynamic/{{index}}/{{type}}/*"
       },
       {
         pattern: "*",
@@ -105,7 +105,7 @@ describe('perf', function () {
     for (var i = 0; i < ROUTE_COUNT; i++) {
       var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
       ;
-      var route = '/dynamic/' + index + '/test_type';
+      var route = '/dynamic/' + index + '/test_type_upsert';
       routes.push(route);
     }
 

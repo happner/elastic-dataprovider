@@ -1029,9 +1029,9 @@ function __getDynamicParts (dataStoreRoute, path) {
 
     dataStoreRoute.pattern.split('/').every(function(segment, segmentIndex){
 
-      if (segment == '{index}') locations.index = segmentIndex;
+      if (segment == '{{index}}') locations.index = segmentIndex;
 
-      if (segment == '{type}') locations.type = segmentIndex;
+      if (segment == '{{type}}') locations.type = segmentIndex;
 
       return !(locations.index && locations.type);
     });

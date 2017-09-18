@@ -42,7 +42,7 @@ describe('func-indexes, with route and data caching', function () {
       },
       {
         dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-        pattern: "/dynamic/{index}/{type}/*"
+        pattern: "/dynamic/{{index}}/{{type}}/*"
       },
       {
         pattern: "*",
