@@ -418,22 +418,22 @@ describe('func', function () {
 
     var bulkItems = [
       {
-        path:'/bulk/test/1',
+        path:'/bulk/test/' + testId + '1',
         data:{
           test:1
         }
       },{
-        path:'/bulk/test/2',
+        path:'/bulk/test' + testId + '2',
         data:{
           test:2
         }
       },{
-        path:'/bulk/test/3',
+        path:'/bulk/test' + testId + '3',
         data:{
           test:3
         }
       },{
-        path:'/bulk/test/4',
+        path:'/bulk/test' + testId + '4',
         data:{
           test:4
         }
@@ -444,7 +444,9 @@ describe('func', function () {
 
       if (e) return done(e);
 
-      console.log('inserted:::', inserted);
+      expect(inserted.errors).to.be(false);
+
+      expect(inserted.items.length).to.be(4);
 
       done();
 

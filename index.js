@@ -64,11 +64,7 @@ ElasticProvider.prototype.__update = __update;
 
 ElasticProvider.prototype.__createBulkMessage = __createBulkMessage;
 
-ElasticProvider.prototype.__getBulkData = __getBulkData;
-
 ElasticProvider.prototype.remove = remove;
-
-ElasticProvider.prototype.__getBulkMeta = __getBulkMeta;
 
 
 /* find and count */
@@ -203,13 +199,15 @@ function upsert (path, setData, options, dataWasMerged, callback) {
 
   try{
 
-    if (Array.isArray(path)){
+    if (Array.isArray(path)){//check for bulk upsert
 
       callback = dataWasMerged;
       options = setData;
       setData = path;
 
       options.upsertType = _this.UPSERT_TYPE.bulk;
+
+      return _this.__bulk(setData, options, callback);
     }
 
     var modifiedOn = Date.now();
@@ -229,13 +227,11 @@ function upsert (path, setData, options, dataWasMerged, callback) {
     if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically using "index"
       return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
 
-    if (options.upsertType == _this.UPSERT_TYPE.bulk)
-      return _this.__bulk(setData, options, route, timestamp, modifiedOn, callback);
-
     _this.__ensureDynamic (route)//upserting so we need to make sure our index exists
 
       .then(function(){
 
+        //[end:{"key":"upsert", "self":"_this"}:end]
         _this.__update(path, setData, options, route, timestamp, modifiedOn, callback);
       })
 
@@ -305,23 +301,15 @@ function __insert (path, setData, options, route, timestamp, modifiedOn, callbac
       modified: modifiedOn,
       timestamp: timestamp,
       path: path,
-      data: setData.data
+      data: setData.data,
+      modifiedBy:options.modifiedBy,
+      createdBy:options.modifiedBy,
+      _tag:setData._tag
     },
 
     refresh: options.refresh,
     opType: "create"
   };
-
-  if (options.modifiedBy) {
-
-    elasticMessage.body.modifiedBy = options.modifiedBy;
-    elasticMessage.body.createdBy = options.modifiedBy;
-  }
-
-  if (setData._tag) {
-
-    elasticMessage.body._tag = setData._tag;
-  }
 
   _this.__elasticCallQueue.push({method:'index', message:elasticMessage}, function (e, response) {
 
@@ -336,45 +324,61 @@ function __insert (path, setData, options, route, timestamp, modifiedOn, callbac
     inserted._id = response._id;
     inserted._version = response._version;
 
+    //inserted, inserted is because the item is definitely being created
+
     callback(null, inserted, inserted, true, _this.__getMeta(inserted));
 
   });
 }
 
-function __bulk (setData, options, index, route, timestamp, modifiedOn, callback) {
+function __bulk (setData, options, callback) {
 
   var _this = this;
 
   //[start:{"key":"__bulk", "self":"_this", "error":"e"}:start]
 
-  if (!Array.isArray(setData)) return callback(new Error('__bulk failed: TypeError - ex[ected array'));
+  var bulkMessage = _this.__createBulkMessage(setData, options);
 
-  var bulkMessage = _this.__createBulkMessage(setData, options, route, timestamp, modifiedOn);
-
-  _this.__elasticCallQueue.push({method:'update', message:bulkMessage}, function (e, response) {
+  _this.__elasticCallQueue.push({method:'bulk', message:bulkMessage}, function (e, response) {
 
     //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
 
     if (e) return callback(e);
 
-    var responseData = _this.__getBulkData (setData, response);
-
     //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
 
-    callback(null, responseData, responseData, true, _this.__getBulkMeta (response));
+    callback(null, response);
   });
 }
 
-function __createBulkMessage(setData, response){
+function __createBulkMessage(setData, options){
 
-}
+  var _this = this;
 
-function __getBulkData(setData, response){
+  //[start:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:start]
 
-}
+  var bulkMessage = {body:[]};
 
-function __getBulkMeta(response){
+  var modifiedOn = Date.now();
 
+  setData.forEach(function(bulkItem){
+
+    bulkMessage.body.push({ index:  { _index: bulkItem.index || _this.__config.defaultIndex, _type: bulkItem.type || _this.__config.defaultType, _id: bulkItem.path } });
+
+    bulkMessage.body.push({
+      created: modifiedOn,
+      modified: modifiedOn,
+      timestamp: modifiedOn,
+      path: bulkItem.path,
+      data: bulkItem.data,
+      modifiedBy:options.modifiedBy,
+      createdBy:options.modifiedBy
+    });
+  });
+
+  //[end:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:end]
+
+  return bulkMessage;
 }
 
 function __update (path, setData, options, route, timestamp, modifiedOn, callback) {
