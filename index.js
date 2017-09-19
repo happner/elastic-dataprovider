@@ -4,7 +4,7 @@ var mongoToElastic = require('./lib/mongo-to-elastic')
   , traverse = require('traverse')
   , Comedian = require('co-median')
   , Cache = require('redis-lru-cache')
-  , hyperid = require('happner-hyperid').create()
+  , hyperid = require('happner-hyperid').create({urlSafe:true})
   , micromustache = require('micromustache')
   ;
 
