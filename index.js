@@ -56,8 +56,6 @@ ElasticProvider.prototype.upsert = upsert;
 
 ElasticProvider.prototype.__ensureDynamic = __ensureDynamic;
 
-ElasticProvider.prototype.__createDynamicIndex = __createDynamicIndex;
-
 ElasticProvider.prototype.__insert = __insert;
 
 ElasticProvider.prototype.__bulk = __bulk;
@@ -120,9 +118,9 @@ ElasticProvider.prototype.__createIndexes = __createIndexes;
 /* elastic message queue */
 
 
-ElasticProvider.prototype.__executeElasticAdminMessage = __executeElasticAdminMessage;
-
 ElasticProvider.prototype.__executeElasticMessage = __executeElasticMessage;
+
+ElasticProvider.prototype.__pushElasticMessage = __pushElasticMessage;
 
 /* utility methods */
 
@@ -162,8 +160,6 @@ function initialize(callback) {
 
       Object.defineProperty(_this, '__elasticCallQueue', {value: async.queue(_this.__executeElasticMessage.bind(_this), _this.__config.elasticCallConcurrency)});
 
-      Object.defineProperty(_this, '__elasticAdminCallQueue', {value: async.queue(_this.__executeElasticAdminMessage.bind(_this), 1)});
-
       if (_this.__config.cache) _this.setUpCache();
 
       _this.__createIndexes(callback);
@@ -201,6 +197,10 @@ function upsert(path, setData, options, dataWasMerged, callback) {
 
   try {
 
+    if (!options) options = {};
+
+    options.refresh = options.refresh === false || options.refresh === "false"?"false":"true"; //true is slow but reliable
+
     if (options.upsertType == _this.UPSERT_TYPE.bulk)//dynamic index is generated automatically using "index" in bulk inserts
       return _this.__bulk(path, setData, options, callback);
 
@@ -208,22 +208,19 @@ function upsert(path, setData, options, dataWasMerged, callback) {
 
     var timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
 
-    if (!options) options = {};
-
-    options.refresh = options.refresh === false || options.refresh === "false"?"false":"true"; //true is slow but reliable
-
     if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
     var route = _this.__getRoute(path, setData.data);
-
-    if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically using "index"
-      return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
 
     _this.__ensureDynamic(route)//upserting so we need to make sure our index exists
 
       .then(function () {
 
-        if (options.retries == null) options.retries = 20;//retry_on_conflict
+        if (options.retries == null)
+          options.retries = _this.__config.elasticCallConcurrency + 20;//retry_on_conflict: same size as the max amount of concurrent calls to elastic and some.
+
+        if (options.upsertType == _this.UPSERT_TYPE.insert)
+          return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
 
         //[end:{"key":"upsert", "self":"_this"}:end]
         _this.__update(path, setData, options, route, timestamp, modifiedOn, callback);
@@ -237,45 +234,22 @@ function upsert(path, setData, options, dataWasMerged, callback) {
   }
 }
 
-var dynamicRoutes = {};
-
 function __ensureDynamic(route) {
 
   var _this = this;
 
-  return new Promise(function (resolve, reject) {
+  return new Promise(function(resolve, reject){
 
-    try {
+    if (!route.dynamic || _this.__dynamicRoutes[route.index]) return resolve();
 
-      if (!route.dynamic || dynamicRoutes[route.index]) return resolve();
+    _this.__createIndex(_this.__buildIndexObj(route)).then(function(){
 
-      _this.__createDynamicIndex(route, function (e) {
+      _this.__dynamicRoutes[route.index] = true;
 
-        if (e) return reject(e);
+      resolve();
 
-        dynamicRoutes[route.index] = true;
-
-        resolve();
-      });
-
-    } catch (e) {
-
-      reject(e);
-    }
+    }).catch(reject);
   });
-}
-
-function __createDynamicIndex(dynamicParts, callback) {
-
-  var _this = this;
-
-  var indexJSON = _this.__buildIndexObj({
-      index: dynamicParts.index,
-      type: dynamicParts.type
-    }
-  );
-
-  _this.__createIndex(dynamicParts.index, indexJSON, callback);
 }
 
 function __insert(path, setData, options, route, timestamp, modifiedOn, callback) {
@@ -305,24 +279,23 @@ function __insert(path, setData, options, route, timestamp, modifiedOn, callback
     opType: "create"
   };
 
-  _this.__elasticCallQueue.push({method: 'index', message: elasticMessage}, function (e, response) {
+  _this.__pushElasticMessage('index', elasticMessage)
 
-    //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
+    .then(function(response){
 
-    if (e) return callback(e);
+        var inserted = elasticMessage.body;
 
-    var inserted = elasticMessage.body;
+        inserted._index = response._index;
+        inserted._type = response._type;
+        inserted._id = response._id;
+        inserted._version = response._version;
 
-    inserted._index = response._index;
-    inserted._type = response._type;
-    inserted._id = response._id;
-    inserted._version = response._version;
+        //inserted, inserted is because the item is definitely being created
 
-    //inserted, inserted is because the item is definitely being created
+        callback(null, inserted, inserted, false, _this.__getMeta(inserted));
+    })
 
-    callback(null, inserted, inserted, false, _this.__getMeta(inserted));
-
-  });
+    .catch(callback)
 }
 
 function __bulk(path, setData, options, callback) {
@@ -331,25 +304,17 @@ function __bulk(path, setData, options, callback) {
 
   //[start:{"key":"__bulk", "self":"_this", "error":"e"}:start]
 
-  try{
+  _this.__createBulkMessage(path, setData, options)
 
-    var bulkMessage = _this.__createBulkMessage(path, setData, options);
+   .then(function(bulkMessage){
+     return _this.__pushElasticMessage('bulk', bulkMessage);
+   })
 
-    _this.__elasticCallQueue.push({method: 'bulk', message: bulkMessage}, function (e, response) {
+   .then(function(response){
+     callback(null, response, null, true, response);
+   })
 
-      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
-
-      if (e) return callback(e);
-
-      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
-
-      callback(null, response, null, true, response);
-    });
-
-  }catch(e){
-    //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
-    callback(e);
-  }
+   .catch(callback);
 }
 
 function __createBulkMessage(path, setData, options) {
@@ -358,48 +323,64 @@ function __createBulkMessage(path, setData, options) {
 
   //[start:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:start]
 
-  var bulkData = setData;
+  return new Promise(function(resolve, reject){
 
-  //coming in from happn, not an object but a raw [] so assigned to data.value
-  if (setData.data && setData.data.value) bulkData = setData.data.value;
+    var bulkData = setData;
 
-  if (bulkData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
+    //coming in from happn, not an object but a raw [] so assigned to data.value
+    if (setData.data && setData.data.value) bulkData = setData.data.value;
 
-  var bulkMessage = {body: []};
+    if (bulkData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
 
-  var modifiedOn = Date.now();
+    var bulkMessage = {body: [], refresh:options.refresh, _source: true};
 
-  bulkData.forEach(function (bulkItem) {
+    var modifiedOn = Date.now();
 
-    var route;
+    async.eachSeries(bulkData, function (bulkItem, bulkItemCB) {
 
-    if (bulkItem.path) route = _this.__getRoute(bulkItem.path, bulkItem.data);
+      var route;
 
-    else route = _this.__getRoute(path, bulkItem.data);
+      if (bulkItem.path) route = _this.__getRoute(bulkItem.path, bulkItem.data);
 
-    bulkMessage.body.push({
-      index:
-      {
-        _index: route.index,
-        _type: route.type,
-        _id: route.path
-      }
-    });
+      else route = _this.__getRoute(path, bulkItem.data);
 
-    bulkMessage.body.push({
-      created: modifiedOn,
-      modified: modifiedOn,
-      timestamp: modifiedOn,
-      path: route.path,
-      data: bulkItem.data,
-      modifiedBy: options.modifiedBy,
-      createdBy: options.modifiedBy
+      _this.__ensureDynamic(route)//upserting so we need to make sure our index exists
+
+        .then(function () {
+
+          bulkMessage.body.push({
+            index:
+            {
+              _index: route.index,
+              _type: route.type,
+              _id: route.path
+            }
+          });
+
+          bulkMessage.body.push({
+            created: modifiedOn,
+            modified: modifiedOn,
+            timestamp: modifiedOn,
+            path: route.path,
+            data: bulkItem.data,
+            modifiedBy: options.modifiedBy,
+            createdBy: options.modifiedBy
+          });
+
+          bulkItemCB();
+        })
+
+        .catch(bulkItemCB);
+
+    }, function(e){
+
+      //[end:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:end]
+
+      if (e) return reject(e);
+
+      resolve(bulkMessage);
     });
   });
-
-  //[end:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:end]
-
-  return bulkMessage;
 }
 
 function __update(path, setData, options, route, timestamp, modifiedOn, callback) {
@@ -449,20 +430,21 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
     elasticMessage.body.upsert._tag = setData._tag;
   }
 
-  _this.__elasticCallQueue.push({method: 'update', message: elasticMessage}, function (e, response) {
+  _this.__pushElasticMessage('update', elasticMessage)
 
-    //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
+    .then(function(response){
 
-    if (e) return callback(e);
+      var data = response.get._source;
 
-    var data = response.get._source;
+      var created = null;
 
-    var created = null;
+      if (response.result == 'created') created = _this.__partialTransform(response.get, route.index, route.type);
 
-    if (response.result == 'created') created = _this.__partialTransform(response.get, route.index, route.type);
+      callback(null, data, created, true, _this.__getMeta(response.get._source));
 
-    callback(null, data, created, true, _this.__getMeta(response.get._source));
-  });
+    })
+
+    .catch(callback);
 }
 
 function remove(path, callback) {
@@ -525,11 +507,18 @@ function remove(path, callback) {
 
     deletedCount = count;
 
-    var elasticArguments = {message: elasticMessage, method: 'delete'};
+    var method = 'delete';
 
-    if (multiple) elasticArguments.method = 'deleteByQuery';
+    if (multiple) method = 'deleteByQuery';
 
-    _this.__elasticCallQueue.push(elasticArguments, handleResponse);
+    _this.__pushElasticMessage(method, elasticMessage)
+
+      .then(function(response){
+
+        handleResponse(null, response);
+      })
+
+      .catch(handleResponse);
   });
 }
 
@@ -585,22 +574,21 @@ function find(path, parameters, callback) {
     });
   }
 
-  _this.__elasticCallQueue.push({message: elasticMessage, method: 'search'}, function (e, resp) {
+  _this.__pushElasticMessage('search', elasticMessage)
 
-    //[end:{"key":"find", "self":"_this"}:end]
+    .then(function(resp){
 
-    if (e) return callback(e);
+      if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
 
-    if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
+        var found = resp.hits.hits;
 
-      var found = resp.hits.hits;
+        if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
 
-      if (parameters.criteria)  found = _this.__filter(_this.__parseFields(parameters.criteria), found);
+        callback(null, _this.__partialTransformAll(found));
 
-      callback(null, _this.__partialTransformAll(found));
-
-    } else callback(null, []);
-  });
+      } else callback(null, []);
+    })
+    .catch(callback);
 }
 
 function findOne(criteria, fields, callback) {
@@ -648,14 +636,13 @@ function count(message, callback) {
 
   else if (message.body) countMessage.body = message.body;
 
-  _this.__elasticCallQueue.push({method: 'count', message: countMessage}, function (e, response) {
+  _this.__pushElasticMessage('count', countMessage)
 
-    //[end:{"key":"count", "self":"_this"}:end]
+    .then(function(response){
 
-    if (e) return callback(e);
-
-    callback(null, response.count);
-  });
+      callback(null, response.count);
+    })
+    .catch(callback);
 }
 
 
@@ -1079,21 +1066,34 @@ function __getDynamicParts(dataStoreRoute, path) {
   return dynamicParts;
 }
 
-function __createIndex(index, indexConfig, callback) {
+function __createIndex(indexConfig) {
 
   var _this = this;
 
   //[start:{"key":"__createIndex", "self":"_this"}:start]
 
-  _this.__elasticAdminCallQueue.push({method: 'indices.create', message: indexConfig}, function (e) {
+  return new Promise(function(resolve, reject){
 
-    if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
+    _this.__pushElasticMessage('indices.create', indexConfig)
 
-      //[end:{"key":"__createIndex", "self":"_this"}:end]
-      return callback(new Error('failed creating index ' + index + ':' + e.toString(), e));
-    }
+      .then(function(){
 
-    callback();
+        //[end:{"key":"__createIndex", "self":"_this"}:end]
+
+        resolve();
+      })
+
+      .catch(function(e){
+
+        //[end:{"key":"__createIndex", "self":"_this", "error":"e"}:end]
+
+        if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
+
+          return reject(new Error('failed creating index ' + indexConfig.index + ':' + e.toString(), e));
+        }
+
+        resolve();
+      });
   });
 }
 
@@ -1172,7 +1172,7 @@ function __createIndexes(callback) {
 
     if (index.index != _this.defaultIndex) indexJSON = _this.__buildIndexObj(index);
 
-    _this.__createIndex(index.index, indexJSON, indexCB);
+    _this.__createIndex(indexJSON).then(indexCB).catch(indexCB);
 
   }, function (e) {
 
@@ -1194,25 +1194,26 @@ function __createIndexes(callback) {
   });
 }
 
+function __pushElasticMessage(method, message) {
 
-function __executeElasticAdminMessage(elasticCall, callback) {
+  var _this = this;
 
-  try {
+  return new Promise(function(resolve, reject){
 
-    if (elasticCall.method == 'indices.create')
-      return this.db.indices.create(elasticCall.message, callback);
+    _this.__elasticCallQueue.push({method: method, message: message}, function (e, response) {
 
-    callback(new Error('unknown admin message: ' + elasticCall.method));
+      if (e) return reject(e);
 
-  } catch (e) {
-
-    callback(e);
-  }
+      resolve(response);
+    });
+  });
 }
 
 function __executeElasticMessage(elasticCall, callback) {
 
   try {
+
+    if (elasticCall.method == 'indices.create') return this.db.indices.create(elasticCall.message, callback);
 
     this.db[elasticCall.method].call(this.db, elasticCall.message, callback);
 
@@ -1221,7 +1222,6 @@ function __executeElasticMessage(elasticCall, callback) {
     callback(e);
   }
 }
-
 
 /* interface stubs */
 

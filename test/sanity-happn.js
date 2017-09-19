@@ -1147,6 +1147,8 @@ describe('sanity-happn', function () {
 
       try{
 
+        console.log(e, inserted);
+
         expect(inserted._meta.errors).to.be(false);
 
         expect(inserted._meta.items.length).to.be(4);
@@ -1199,21 +1201,14 @@ describe('sanity-happn', function () {
 
     publisherclient.set('/dynamic/{{indexProperty}}/{{typeProperty}}/{id}', bulkItems, {upsertType:3}, function (e, results) {
 
-      if (e) return done(e);
-
       try{
 
-        expect(results._meta.errors).to.be(true);
+        expect(e).to.not.be(null);
 
-        expect(results._meta.items.length).to.be(4);
+        expect(e).to.not.be(undefined);
 
-        for (var i = 0; i < results._meta.items.length; i++)
-          expect(results._meta.items[i].index.status).to.be(400);
-
-        done();
-
+        return done();
       }catch(e){
-
         done(e);
       }
     });

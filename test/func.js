@@ -444,8 +444,6 @@ describe('func', function () {
 
       expect(inserted.items.length).to.be(4);
 
-      console.log(JSON.stringify(inserted, null, 2));
-
       for (var i = 0; i < inserted.items.length; i++) expect(inserted.items[i].index.result).to.be('created');
 
       done();

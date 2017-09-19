@@ -170,7 +170,7 @@ describe('perf', function () {
             successfulRowCallback();
           });
 
-        }, function(){
+        }, function(e){
 
           if (e) return done(e);
 
@@ -261,7 +261,7 @@ describe('perf', function () {
             successfulRowCallback();
           });
 
-        }, function(){
+        }, function(e){
 
           if (e) return done(e);
 
@@ -355,7 +355,7 @@ describe('perf', function () {
             successfulRowCallback();
           });
 
-        }, function(){
+        }, function(e){
 
           if (e) return done(e);
 
@@ -448,7 +448,7 @@ describe('perf', function () {
             successfulRowCallback();
           });
 
-        }, function(){
+        }, function(e){
 
           if (e) return done(e);
 
@@ -541,7 +541,7 @@ describe('perf', function () {
             successfulRowCallback();
           });
 
-        }, function(){
+        }, function(e){
 
           if (e) return done(e);
 
@@ -554,10 +554,10 @@ describe('perf', function () {
     });
   });
 
-  var ROW_COUNT_DIRECT = 100;
+  var ROW_COUNT_DIRECT = 1000;
   var DELAY_DIRECT = 2000;
 
-  it('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items', function (done) {
+  xit('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items', function (done) {
 
     this.timeout(1000 * ROW_COUNT_DIRECT + DELAY_DIRECT);
 
@@ -585,8 +585,8 @@ describe('perf', function () {
       async.each(rows, function (row, callback) {
 
         var elasticMessage = {
-          "index": 'happner',
-          "type": 'happner',
+          "index": 'happn',
+          "type": 'happn',
           id: row,
           body: {data: {"test": row}},
           refresh: false
@@ -642,7 +642,7 @@ describe('perf', function () {
               successfulRowCallback();
             });
 
-          }, function(){
+          }, function(e){
 
             if (e) return done(e);
 
@@ -657,7 +657,7 @@ describe('perf', function () {
     });
   });
 
-  it('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items with http agent', function (done) {
+  xit('tests direct pushes to ES, pushing ' + ROW_COUNT_DIRECT + ' data items with http agent', function (done) {
 
     this.timeout(1000 * ROW_COUNT_DIRECT + DELAY_DIRECT);
 
@@ -685,8 +685,8 @@ describe('perf', function () {
       async.each(rows, function (row, callback) {
 
         var elasticMessage = {
-          "index": 'happner',
-          "type": 'happner',
+          "index": 'happn',
+          "type": 'happn',
           id: row,
           body: {data: {"test": row}},
           refresh: false
@@ -742,7 +742,7 @@ describe('perf', function () {
               successfulRowCallback();
             });
 
-          }, function(){
+          }, function(e){
 
             if (e) return done(e);
 
@@ -763,13 +763,14 @@ describe('perf', function () {
 
   var BULK_INSERT_COUNT = 0;
 
-  var BULK_DELAY = 2000;
+  var BULK_DELAY = 5000;
 
   it('tests parallel dynamic routes, creating ' + BULK_ROUTE_COUNT + ' routes and pushing ' + BULK_ROW_COUNT + ' data items into the routes via the bulk operation', function (done) {
 
     this.timeout(1000 * BULK_ROW_COUNT + BULK_DELAY);
 
     var routes = [];
+
     var bulkData = [];
 
     for (var i = 0; i < BULK_ROUTE_COUNT; i++) {
@@ -785,8 +786,6 @@ describe('perf', function () {
 
       var routeIndex = random.integer(0, BULK_ROUTE_COUNT - 1);
 
-      var row = routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/upsert/' + routeIndex.toString();
-
       bulkData.push({
         data: {"index":routes[routeIndex].index, "type":routes[routeIndex].type}
       });
@@ -796,17 +795,13 @@ describe('perf', function () {
 
     var started = Date.now();
 
-    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/{id}', bulkData, {upsertType:3}, false, function (e, inserted) {
+    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/{id}/bulk_dynamic_' + testId, bulkData, {upsertType:3}, false, function (e, inserted) {
 
       if (e) return done(e);
-
-      console.log('completed bulk upsert:::');
 
       expect(inserted.errors).to.be(false);
 
       expect(inserted.items.length).to.be(BULK_INSERT_COUNT);
-
-      var errorHappened = false;
 
       var duration = Date.now() - started;
 
@@ -818,38 +813,20 @@ describe('perf', function () {
 
       setTimeout(function () {
 
-        async.eachSeries(bulkData, function (successfulRow, successfulRowCallback) {
+        async.eachSeries(inserted.items, function(item, itemCB){
 
-          var callbackError = function (error) {
+          serviceInstance.find(item.index._id, {}, function (e, data) {
 
-            if (!errorHappened) {
-              errorHappened = true;
-              successfulRowCallback(error)
-            }
-          };
+            if (e) return itemCB(e);
 
-          serviceInstance.find(successfulRow.path, {}, function (e, data) {
+            if (data.length == 0) return done(new Error('missing row for: ' + item.index._id));
 
-            if (e) return callbackError(e);
-
-            if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
-
-            if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.data.test));
-
-            successfulRowCallback();
+            itemCB();
           });
 
-        }, function(){
-
-          if (e) return done(e);
-
-          console.log('data confirmed in database.');
-
-          done();
-        });
+        }, done);
 
       }, BULK_DELAY);
-
     });
   });
 
@@ -859,27 +836,12 @@ describe('perf', function () {
 
     BULK_INSERT_COUNT = 0;
 
-    var routes = [];
-
     var bulkData = [];
-
-    for (var i = 0; i < BULK_ROUTE_COUNT; i++) {
-
-      var index = 'happn';
-
-      var type = 'happn';
-
-      routes.push({index:index, type:type});
-    }
 
     for (var i = 0; i < BULK_ROW_COUNT; i++) {
 
-      var routeIndex = random.integer(0, BULK_ROUTE_COUNT - 1);
-
-      var row = routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/upsert/' + routeIndex.toString();
-
       bulkData.push({
-        data: {"index":routes[routeIndex].index, "type":routes[routeIndex].type}
+        data: {"index":"bulk", "type":"bulk"}
       });
 
       BULK_INSERT_COUNT++;
@@ -887,7 +849,7 @@ describe('perf', function () {
 
     var started = Date.now();
 
-    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/{id}', bulkData, {upsertType:3}, false, function (e, inserted) {
+    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/bulk_static' + testId + '/{id}', bulkData, {upsertType:3}, false, function (e, inserted) {
 
       if (e) return done(e);
 
@@ -895,7 +857,7 @@ describe('perf', function () {
 
       expect(inserted.items.length).to.be(BULK_INSERT_COUNT);
 
-      var errorHappened = false;
+      //console.log(JSON.stringify(inserted.items, null, 2));
 
       var duration = Date.now() - started;
 
@@ -907,32 +869,13 @@ describe('perf', function () {
 
       setTimeout(function () {
 
-        async.eachSeries(bulkData, function (successfulRow, successfulRowCallback) {
+        // /dynamic/happn/happn/bulk_static4d55362bc5944eb7877b332c4acab7b1/Y3sY4o9iRwyK3RUZDK7fjA-9
 
-          var callbackError = function (error) {
-
-            if (!errorHappened) {
-              errorHappened = true;
-              successfulRowCallback(error)
-            }
-          };
-
-          serviceInstance.find(successfulRow.path, {}, function (e, data) {
-
-            if (e) return callbackError(e);
-
-            if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
-
-            if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.data.test));
-
-            successfulRowCallback();
-          });
-
-        }, function(){
+        serviceInstance.find('/dynamic/bulk/bulk/bulk_static' + testId + '/*', {}, function (e, data) {
 
           if (e) return done(e);
 
-          console.log('data confirmed in database.');
+          if (data.length != BULK_INSERT_COUNT) return done(new Error('missing rows for: ' + '/dynamic/bulk/bulk/bulk_static' + testId + '*'));
 
           done();
         });
