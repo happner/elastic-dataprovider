@@ -104,7 +104,6 @@ describe('perf', function () {
 
     for (var i = 0; i < ROUTE_COUNT; i++) {
       var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
-      ;
       var route = '/dynamic/' + index + '/test_type_upsert';
       routes.push(route);
     }

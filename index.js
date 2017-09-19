@@ -210,7 +210,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
 
     if (!options) options = {};
 
-    if (options.refresh == null) options.refresh = true; //slow but reliable
+    options.refresh = options.refresh === false || options.refresh === "false"?"false":"true"; //true is slow but reliable
 
     if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
@@ -433,7 +433,7 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
     },
     _source: true,
     refresh: options.refresh,
-    retry_on_conflict: options.retries
+    retryOnConflict: options.retries
   };
 
   if (options.modifiedBy) {
