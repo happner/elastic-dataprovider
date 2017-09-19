@@ -320,7 +320,7 @@ function __insert(path, setData, options, route, timestamp, modifiedOn, callback
 
     //inserted, inserted is because the item is definitely being created
 
-    callback(null, inserted, inserted, true, _this.__getMeta(inserted));
+    callback(null, inserted, inserted, false, _this.__getMeta(inserted));
 
   });
 }
@@ -343,7 +343,7 @@ function __bulk(path, setData, options, callback) {
 
       //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
 
-      callback(null, response);
+      callback(null, response, null, true, response);
     });
 
   }catch(e){
@@ -358,13 +358,18 @@ function __createBulkMessage(path, setData, options) {
 
   //[start:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:start]
 
-  if (setData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
+  var bulkData = setData;
+
+  //coming in from happn, not an object but a raw [] so assigned to data.value
+  if (setData.data && setData.data.value) bulkData = setData.data.value;
+
+  if (bulkData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
 
   var bulkMessage = {body: []};
 
   var modifiedOn = Date.now();
 
-  setData.forEach(function (bulkItem) {
+  bulkData.forEach(function (bulkItem) {
 
     var route;
 
@@ -537,8 +542,6 @@ function find(path, parameters, callback) {
   //[start:{"key":"find", "self":"_this"}:start]
 
   var route = _this.__getRoute(searchPath);
-
-  //console.log('find route:::', route);
 
   if (route.noIndexYet) {
     //[end:{"key":"find", "self":"_this"}:end]
