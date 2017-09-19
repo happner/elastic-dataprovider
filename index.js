@@ -4,7 +4,9 @@ var mongoToElastic = require('./lib/mongo-to-elastic')
   , traverse = require('traverse')
   , Comedian = require('co-median')
   , Cache = require('redis-lru-cache')
-;
+  , hyperid = require('happner-hyperid').create()
+  , micromustache = require('micromustache')
+  ;
 
 function ElasticProvider(config) {
 
@@ -32,10 +34,10 @@ function ElasticProvider(config) {
 }
 
 ElasticProvider.prototype.UPSERT_TYPE = {
-  upsert:0,
-  update:1,
-  insert:2,
-  bulk:3
+  upsert: 0,
+  update: 1,
+  insert: 2,
+  bulk: 3
 };
 
 
@@ -78,7 +80,7 @@ ElasticProvider.prototype.count = count;
 ElasticProvider.prototype.__filter = __filter;
 
 
-  /* data transformation and fields */
+/* data transformation and fields */
 
 ElasticProvider.prototype.__partialTransformAll = __partialTransformAll;
 
@@ -131,7 +133,7 @@ ElasticProvider.prototype.escapeRegex = escapeRegex;
 ElasticProvider.prototype.preparePath = preparePath;
 
 
-function initialize (callback) {
+function initialize(callback) {
 
   var _this = this;
 
@@ -172,7 +174,7 @@ function initialize (callback) {
   }
 }
 
-function stop (callback) {
+function stop(callback) {
 
   this.db.close();
 
@@ -180,7 +182,7 @@ function stop (callback) {
 }
 
 
-function __initializeRoutes () {
+function __initializeRoutes() {
 
   var _this = this;
 
@@ -191,24 +193,16 @@ function __initializeRoutes () {
   });
 }
 
-function upsert (path, setData, options, dataWasMerged, callback) {
+function upsert(path, setData, options, dataWasMerged, callback) {
 
   var _this = this;
 
   //[start:{"key":"upsert", "self":"_this"}:start]
 
-  try{
+  try {
 
-    if (Array.isArray(path)){//check for bulk upsert
-
-      callback = dataWasMerged;
-      options = setData;
-      setData = path;
-
-      options.upsertType = _this.UPSERT_TYPE.bulk;
-
-      return _this.__bulk(setData, options, callback);
-    }
+    if (options.upsertType == _this.UPSERT_TYPE.bulk)//dynamic index is generated automatically using "index" in bulk inserts
+      return _this.__bulk(path, setData, options, callback);
 
     var modifiedOn = Date.now();
 
@@ -220,16 +214,16 @@ function upsert (path, setData, options, dataWasMerged, callback) {
 
     if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
-    if (options.retries == null) options.retries = 20;
-
-    var route = _this.__getRoute(path, options);
+    var route = _this.__getRoute(path, setData.data);
 
     if (options.upsertType == _this.UPSERT_TYPE.insert)//dynamic index is generated automatically using "index"
       return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
 
-    _this.__ensureDynamic (route)//upserting so we need to make sure our index exists
+    _this.__ensureDynamic(route)//upserting so we need to make sure our index exists
 
-      .then(function(){
+      .then(function () {
+
+        if (options.retries == null) options.retries = 20;//retry_on_conflict
 
         //[end:{"key":"upsert", "self":"_this"}:end]
         _this.__update(path, setData, options, route, timestamp, modifiedOn, callback);
@@ -237,7 +231,7 @@ function upsert (path, setData, options, dataWasMerged, callback) {
 
       .catch(callback);
 
-  }catch(e){
+  } catch (e) {
 
     callback(e);
   }
@@ -245,17 +239,17 @@ function upsert (path, setData, options, dataWasMerged, callback) {
 
 var dynamicRoutes = {};
 
-function __ensureDynamic(route){
+function __ensureDynamic(route) {
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-    try{
+    try {
 
       if (!route.dynamic || dynamicRoutes[route.index]) return resolve();
 
-      _this.__createDynamicIndex(route, function(e){
+      _this.__createDynamicIndex(route, function (e) {
 
         if (e) return reject(e);
 
@@ -264,14 +258,14 @@ function __ensureDynamic(route){
         resolve();
       });
 
-    }catch(e){
+    } catch (e) {
 
       reject(e);
     }
   });
 }
 
-function __createDynamicIndex (dynamicParts, callback) {
+function __createDynamicIndex(dynamicParts, callback) {
 
   var _this = this;
 
@@ -284,7 +278,7 @@ function __createDynamicIndex (dynamicParts, callback) {
   _this.__createIndex(dynamicParts.index, indexJSON, callback);
 }
 
-function __insert (path, setData, options, route, timestamp, modifiedOn, callback) {
+function __insert(path, setData, options, route, timestamp, modifiedOn, callback) {
 
   var _this = this;
 
@@ -302,16 +296,16 @@ function __insert (path, setData, options, route, timestamp, modifiedOn, callbac
       timestamp: timestamp,
       path: path,
       data: setData.data,
-      modifiedBy:options.modifiedBy,
-      createdBy:options.modifiedBy,
-      _tag:setData._tag
+      modifiedBy: options.modifiedBy,
+      createdBy: options.modifiedBy,
+      _tag: setData._tag
     },
 
     refresh: options.refresh,
     opType: "create"
   };
 
-  _this.__elasticCallQueue.push({method:'index', message:elasticMessage}, function (e, response) {
+  _this.__elasticCallQueue.push({method: 'index', message: elasticMessage}, function (e, response) {
 
     //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
 
@@ -331,48 +325,70 @@ function __insert (path, setData, options, route, timestamp, modifiedOn, callbac
   });
 }
 
-function __bulk (setData, options, callback) {
+function __bulk(path, setData, options, callback) {
 
   var _this = this;
 
   //[start:{"key":"__bulk", "self":"_this", "error":"e"}:start]
 
-  var bulkMessage = _this.__createBulkMessage(setData, options);
+  try{
 
-  _this.__elasticCallQueue.push({method:'bulk', message:bulkMessage}, function (e, response) {
+    var bulkMessage = _this.__createBulkMessage(path, setData, options);
 
+    _this.__elasticCallQueue.push({method: 'bulk', message: bulkMessage}, function (e, response) {
+
+      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
+
+      if (e) return callback(e);
+
+      //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
+
+      callback(null, response);
+    });
+
+  }catch(e){
     //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
-
-    if (e) return callback(e);
-
-    //[end:{"key":"__bulk", "self":"_this", "error":"e"}:end]
-
-    callback(null, response);
-  });
+    callback(e);
+  }
 }
 
-function __createBulkMessage(setData, options){
+function __createBulkMessage(path, setData, options) {
 
   var _this = this;
 
   //[start:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:start]
 
-  var bulkMessage = {body:[]};
+  if (setData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
+
+  var bulkMessage = {body: []};
 
   var modifiedOn = Date.now();
 
-  setData.forEach(function(bulkItem){
+  setData.forEach(function (bulkItem) {
 
-    bulkMessage.body.push({ index:  { _index: bulkItem.index || _this.__config.defaultIndex, _type: bulkItem.type || _this.__config.defaultType, _id: bulkItem.path } });
+    var route;
+
+    if (bulkItem.path) route = _this.__getRoute(bulkItem.path, bulkItem.data);
+
+    else route = _this.__getRoute(path, bulkItem.data);
+
+    bulkMessage.body.push({
+      index:
+      {
+        _index: route.index,
+        _type: route.type,
+        _id: route.path
+      }
+    });
 
     bulkMessage.body.push({
       created: modifiedOn,
       modified: modifiedOn,
       timestamp: modifiedOn,
-      path: bulkItem.path,
+      path: route.path,
       data: bulkItem.data,
-      modifiedBy:options.modifiedBy,
-      createdBy:options.modifiedBy
+      modifiedBy: options.modifiedBy,
+      createdBy: options.modifiedBy
     });
   });
 
@@ -381,7 +397,7 @@ function __createBulkMessage(setData, options){
   return bulkMessage;
 }
 
-function __update (path, setData, options, route, timestamp, modifiedOn, callback) {
+function __update(path, setData, options, route, timestamp, modifiedOn, callback) {
 
   var _this = this;
 
@@ -428,7 +444,7 @@ function __update (path, setData, options, route, timestamp, modifiedOn, callbac
     elasticMessage.body.upsert._tag = setData._tag;
   }
 
-  _this.__elasticCallQueue.push({method:'update', message:elasticMessage}, function (e, response) {
+  _this.__elasticCallQueue.push({method: 'update', message: elasticMessage}, function (e, response) {
 
     //[end:{"key":"__update", "self":"_this", "error":"e"}:end]
 
@@ -444,7 +460,7 @@ function __update (path, setData, options, route, timestamp, modifiedOn, callbac
   });
 }
 
-function remove (path, callback) {
+function remove(path, callback) {
 
   var _this = this;
 
@@ -504,7 +520,7 @@ function remove (path, callback) {
 
     deletedCount = count;
 
-    var elasticArguments = {message:elasticMessage, method:'delete'};
+    var elasticArguments = {message: elasticMessage, method: 'delete'};
 
     if (multiple) elasticArguments.method = 'deleteByQuery';
 
@@ -512,7 +528,7 @@ function remove (path, callback) {
   });
 }
 
-function find (path, parameters, callback) {
+function find(path, parameters, callback) {
 
   var _this = this;
 
@@ -566,7 +582,7 @@ function find (path, parameters, callback) {
     });
   }
 
-  _this.__elasticCallQueue.push({message:elasticMessage, method:'search'}, function(e, resp){
+  _this.__elasticCallQueue.push({message: elasticMessage, method: 'search'}, function (e, resp) {
 
     //[end:{"key":"find", "self":"_this"}:end]
 
@@ -584,7 +600,7 @@ function find (path, parameters, callback) {
   });
 }
 
-function findOne (criteria, fields, callback) {
+function findOne(criteria, fields, callback) {
 
   var _this = this;
 
@@ -608,7 +624,7 @@ function findOne (criteria, fields, callback) {
   })
 };
 
-function count (message, callback) {
+function count(message, callback) {
 
   var _this = this;
 
@@ -629,7 +645,7 @@ function count (message, callback) {
 
   else if (message.body) countMessage.body = message.body;
 
-  _this.__elasticCallQueue.push({method:'count', message:countMessage} , function (e, response) {
+  _this.__elasticCallQueue.push({method: 'count', message: countMessage}, function (e, response) {
 
     //[end:{"key":"count", "self":"_this"}:end]
 
@@ -640,8 +656,7 @@ function count (message, callback) {
 }
 
 
-
-function __partialTransformAll (dataItems) {
+function __partialTransformAll(dataItems) {
 
   var _this = this;
 
@@ -650,7 +665,7 @@ function __partialTransformAll (dataItems) {
   })
 }
 
-function __partialTransform (dataItem, index, type) {
+function __partialTransform(dataItem, index, type) {
 
   return {
     _id: dataItem._id ? dataItem._id : dataItem._source.path,
@@ -669,7 +684,7 @@ function __partialTransform (dataItem, index, type) {
   };
 }
 
-function __partialInsertTransform (createdObj, response) {
+function __partialInsertTransform(createdObj, response) {
 
   return {
     _id: response._id,
@@ -687,7 +702,7 @@ function __partialInsertTransform (createdObj, response) {
   };
 }
 
-function transform (dataObj, meta) {
+function transform(dataObj, meta) {
 
   //[start:{"key":"transform", "self":"this"}:start]
 
@@ -720,7 +735,7 @@ function transform (dataObj, meta) {
   return transformed;
 }
 
-function transformAll (items) {
+function transformAll(items) {
 
   var _this = this;
 
@@ -730,7 +745,7 @@ function transformAll (items) {
   })
 }
 
-function __parseFields (fields) {
+function __parseFields(fields) {
 
   //[start:{"key":"__parseFields", "self":"this"}:start]
 
@@ -785,12 +800,12 @@ function __parseFields (fields) {
     }
   });
 
-      //[end:{"key":"__parseFields", "self":"this"}:end]
+  //[end:{"key":"__parseFields", "self":"this"}:end]
 
   return fields;
 }
 
-function __getMeta (response) {
+function __getMeta(response) {
 
   var meta = {
     created: response.created,
@@ -804,19 +819,19 @@ function __getMeta (response) {
   return meta;
 }
 
-function __wildcardMatch (pattern, matchTo) {
+function __wildcardMatch(pattern, matchTo) {
 
   return this.__comedian.matches(pattern, matchTo);
 }
 
-function escapeRegex (str) {
+function escapeRegex(str) {
 
   if (typeof str !== 'string') throw new TypeError('Expected a string');
 
   return str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
 }
 
-function preparePath (path) {
+function preparePath(path) {
 
   //strips out duplicate sequential wildcards, ie simon***bishop -> simon*bishop
 
@@ -842,7 +857,7 @@ function preparePath (path) {
   return prepared;
 }
 
-function __filter (criteria, items) {
+function __filter(criteria, items) {
   try {
     return sift(criteria, items);
   } catch (e) {
@@ -850,7 +865,7 @@ function __filter (criteria, items) {
   }
 }
 
-function setUpCache () {
+function setUpCache() {
 
   var _this = this;
 
@@ -967,7 +982,7 @@ function setUpCache () {
   console.warn('data caching is on, be sure you have redis up.');
 }
 
-function __matchRoute (path, pattern) {
+function __matchRoute(path, pattern) {
 
   if (this.__wildcardMatch(pattern, path)) return true;
 
@@ -978,7 +993,7 @@ function __matchRoute (path, pattern) {
   return this.__wildcardMatch(baseTagPath + pattern, path);
 }
 
-function __getRoute (path, callback) {
+function __getRoute(path, obj) {
 
   var _this = this;
 
@@ -986,48 +1001,57 @@ function __getRoute (path, callback) {
 
   var route = null;
 
+  var routePath = path.toString();
+
+  if (obj) routePath = micromustache.render(routePath, obj);
+
+  if (routePath.indexOf('{id}') > -1) routePath = routePath.replace('{id}', hyperid());
+
   _this.__config.dataroutes.every(function (dataStoreRoute) {
 
     var pattern = dataStoreRoute.pattern;
 
     if (dataStoreRoute.dynamic) pattern = dataStoreRoute.pattern.split('{')[0] + '*';
 
-    if (_this.__matchRoute(path, pattern)) route = dataStoreRoute;
+    if (_this.__matchRoute(routePath, pattern)) route = dataStoreRoute;
 
     return route == null;
   });
 
   if (!route) {
     //[end:{"key":"__getRoute", "self":"_this"}:end]
-    throw new Error('route for path ' + path + ' does not exist');
+    throw new Error('route for path ' + routePath + ' does not exist');
   }
 
-  if (route.dynamic){
+  if (route.dynamic) {
 
     //[end:{"key":"__getRoute", "self":"_this"}:end]
-    return  _this.__getDynamicParts(route, path);
+    route = _this.__getDynamicParts(route, routePath);
   }
 
   //[end:{"key":"__getRoute", "self":"_this"}:end]
+
+  route.path = routePath;
+
   return route;
 }
 
 
-function __getDynamicParts (dataStoreRoute, path) {
+function __getDynamicParts(dataStoreRoute, path) {
 
   var _this = this;
 
   //[start:{"key":"__prepareDynamicIndex", "self":"_this"}:start]
 
-  var dynamicParts = {dynamic:true};
+  var dynamicParts = {dynamic: true};
 
   var pathSegments = path.split('/');
 
-  if (!dataStoreRoute.pathLocations){
+  if (!dataStoreRoute.pathLocations) {
 
     var locations = {};
 
-    dataStoreRoute.pattern.split('/').every(function(segment, segmentIndex){
+    dataStoreRoute.pattern.split('/').every(function (segment, segmentIndex) {
 
       if (segment == '{{index}}') locations.index = segmentIndex;
 
@@ -1052,13 +1076,13 @@ function __getDynamicParts (dataStoreRoute, path) {
   return dynamicParts;
 }
 
-function __createIndex (index, indexConfig, callback) {
+function __createIndex(index, indexConfig, callback) {
 
   var _this = this;
 
-   //[start:{"key":"__createIndex", "self":"_this"}:start]
+  //[start:{"key":"__createIndex", "self":"_this"}:start]
 
-  _this.__elasticAdminCallQueue.push({method:'indices.create', message:indexConfig}, function (e) {
+  _this.__elasticAdminCallQueue.push({method: 'indices.create', message: indexConfig}, function (e) {
 
     if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
 
@@ -1070,7 +1094,7 @@ function __createIndex (index, indexConfig, callback) {
   });
 }
 
-function __buildIndexObj (indexConfig) {
+function __buildIndexObj(indexConfig) {
 
   var _this = this;
 
@@ -1118,7 +1142,7 @@ function __buildIndexObj (indexConfig) {
   return indexJSON;
 }
 
-function __createIndexes (callback) {
+function __createIndexes(callback) {
 
   var _this = this;
 
@@ -1168,28 +1192,28 @@ function __createIndexes (callback) {
 }
 
 
-function __executeElasticAdminMessage (elasticCall, callback){
+function __executeElasticAdminMessage(elasticCall, callback) {
 
-  try{
+  try {
 
     if (elasticCall.method == 'indices.create')
       return this.db.indices.create(elasticCall.message, callback);
 
     callback(new Error('unknown admin message: ' + elasticCall.method));
 
-  }catch(e){
+  } catch (e) {
 
     callback(e);
   }
 }
 
-function __executeElasticMessage(elasticCall, callback){
+function __executeElasticMessage(elasticCall, callback) {
 
-  try{
+  try {
 
     this.db[elasticCall.method].call(this.db, elasticCall.message, callback);
 
-  }catch(e){
+  } catch (e) {
 
     callback(e);
   }
@@ -1216,7 +1240,6 @@ ElasticProvider.prototype.compact = function (callback) {
 
   return callback();
 };
-
 
 
 module.exports = ElasticProvider;
