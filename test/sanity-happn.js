@@ -1106,4 +1106,117 @@ describe('sanity-happn', function () {
       }, 1000);
     });
   });
+
+  it('should bulk index some data', function (done) {
+
+    var dynamicType = (test_id + 'type').toLowerCase();
+
+    var dynamicIndex = (test_id + 'index').toLowerCase();
+
+    var bulkItems = [
+      {
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:1
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:2
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:3
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:4
+        }
+      }
+    ];
+
+    publisherclient.set('/dynamic/{{indexProperty}}/{{typeProperty}}/{id}', bulkItems, {upsertType:3}, function (e, inserted) {
+
+      if (e) return done(e);
+
+      try{
+
+        expect(inserted._meta.errors).to.be(false);
+
+        expect(inserted._meta.items.length).to.be(4);
+
+        for (var i = 0; i < inserted.value.length; i++)
+          expect(inserted.value[i].data.indexProperty).to.be(dynamicIndex);
+
+        done();
+
+      }catch(e){
+
+        done(e);
+      }
+    });
+  });
+
+  it('should fail bad index and type', function (done) {
+
+    var dynamicType = (test_id + 'TYPE');
+
+    var dynamicIndex = (test_id + 'INDEX');
+
+    var bulkItems = [
+      {
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:1
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:2
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:3
+        }
+      },{
+        data:{
+          indexProperty:dynamicIndex,
+          typeProperty:dynamicType,
+          test:4
+        }
+      }
+    ];
+
+    publisherclient.set('/dynamic/{{indexProperty}}/{{typeProperty}}/{id}', bulkItems, {upsertType:3}, function (e, results) {
+
+      if (e) return done(e);
+
+      try{
+
+        expect(results._meta.errors).to.be(true);
+
+        expect(results._meta.items.length).to.be(4);
+
+        for (var i = 0; i < results._meta.items.length; i++)
+          expect(results._meta.items[i].index.status).to.be(400);
+
+        done();
+
+      }catch(e){
+
+        done(e);
+      }
+    });
+  });
+
 });

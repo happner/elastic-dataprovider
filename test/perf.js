@@ -757,47 +757,7 @@ describe('perf', function () {
 
     });
   });
-
-
-  it('tests a bulk insert', function (done) {
-
-    var bulkItems = [
-      {
-        path:'/bulk/test/' + testId + '1',
-        data:{
-          test:1
-        }
-      },{
-        path:'/bulk/test' + testId + '2',
-        data:{
-          test:2
-        }
-      },{
-        path:'/bulk/test' + testId + '3',
-        data:{
-          test:3
-        }
-      },{
-        path:'/bulk/test' + testId + '4',
-        data:{
-          test:4
-        }
-      }
-    ];
-
-    serviceInstance.upsert(bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
-
-      if (e) return done(e);
-
-      expect(inserted.errors).to.be(false);
-
-      expect(inserted.items.length).to.be(4);
-
-      done();
-
-    });
-  });
-
+  
   var BULK_ROUTE_COUNT = 5;
 
   var BULK_ROW_COUNT = 1000;
@@ -814,31 +774,121 @@ describe('perf', function () {
     var bulkData = [];
 
     for (var i = 0; i < BULK_ROUTE_COUNT; i++) {
+
       var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
-      var route = '/dynamic/' + index + '/test_type_bulk';
-      routes.push(route);
+
+      var type = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
+
+      routes.push({index:index, type:type});
     }
 
     for (var i = 0; i < BULK_ROW_COUNT; i++) {
 
-      var routeIndex = random.integer(0, BULK_ROUTE_COUNT);
+      var routeIndex = random.integer(0, BULK_ROUTE_COUNT - 1);
 
-      if (routes[routeIndex] != null){
+      var row = routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/upsert/' + routeIndex.toString();
 
-        var row = routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/upsert/' + routeIndex.toString();
+      bulkData.push({
+        data: {"index":routes[routeIndex].index, "type":routes[routeIndex].type}
+      });
 
-        bulkData.push({
-          path:row,
-          data: {"test": row}
-        });
-
-        BULK_INSERT_COUNT++;
-      }
+      BULK_INSERT_COUNT++;
     }
 
     var started = Date.now();
 
-    serviceInstance.upsert(bulkData, {}, false, function (e, inserted) {
+    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/{id}', bulkData, {upsertType:3}, false, function (e, inserted) {
+
+      if (e) return done(e);
+
+      console.log('completed bulk upsert:::');
+
+      expect(inserted.errors).to.be(false);
+
+      expect(inserted.items.length).to.be(BULK_INSERT_COUNT);
+
+      var errorHappened = false;
+
+      var duration = Date.now() - started;
+
+      console.log('duration of push: ', duration);
+
+      var rate = 1000 / (duration / BULK_INSERT_COUNT);
+
+      console.log('upserted at a rate of ' + rate + ' per sec, BULK_DELAY of ' + BULK_DELAY + 'ms before confirming via find...');
+
+      setTimeout(function () {
+
+        async.eachSeries(bulkData, function (successfulRow, successfulRowCallback) {
+
+          var callbackError = function (error) {
+
+            if (!errorHappened) {
+              errorHappened = true;
+              successfulRowCallback(error)
+            }
+          };
+
+          serviceInstance.find(successfulRow.path, {}, function (e, data) {
+
+            if (e) return callbackError(e);
+
+            if (data.length == 0) return callbackError(new Error('missing row for: ' + successfulRow.row));
+
+            if (data[0].data.test != successfulRow.row) return callbackError(new Error('row test value ' + data[0].data.test + ' was not equal to ' + successfulRow.data.test));
+
+            successfulRowCallback();
+          });
+
+        }, function(){
+
+          if (e) return done(e);
+
+          console.log('data confirmed in database.');
+
+          done();
+        });
+
+      }, BULK_DELAY);
+
+    });
+  });
+
+  it('tests parallel static routes (index and type is constant) pushing ' + BULK_ROW_COUNT + ' data items into the routes via the bulk operation', function (done) {
+
+    this.timeout(1000 * BULK_ROW_COUNT + BULK_DELAY);
+
+    BULK_INSERT_COUNT = 0;
+
+    var routes = [];
+
+    var bulkData = [];
+
+    for (var i = 0; i < BULK_ROUTE_COUNT; i++) {
+
+      var index = 'happn';
+
+      var type = 'happn';
+
+      routes.push({index:index, type:type});
+    }
+
+    for (var i = 0; i < BULK_ROW_COUNT; i++) {
+
+      var routeIndex = random.integer(0, BULK_ROUTE_COUNT - 1);
+
+      var row = routes[routeIndex] + '/route_' + routeIndex.toString() + '/' + Date.now().toString() + '/upsert/' + routeIndex.toString();
+
+      bulkData.push({
+        data: {"index":routes[routeIndex].index, "type":routes[routeIndex].type}
+      });
+
+      BULK_INSERT_COUNT++;
+    }
+
+    var started = Date.now();
+
+    serviceInstance.upsert('/dynamic/{{index}}/{{type}}/{id}', bulkData, {upsertType:3}, false, function (e, inserted) {
 
       if (e) return done(e);
 

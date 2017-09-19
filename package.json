@@ -1,6 +1,6 @@
 {
   "name": "happner-elastic-dataprovider",
-  "version": "2.2.2",
+  "version": "3.0.0",
   "scripts": {
     "test": "mocha test",
     "test-perf": "mocha test/perf.js"
@@ -27,6 +27,8 @@
     "elasticsearch": "13.2.0",
     "extract-values": "^0.1.2",
     "happn-logger": "0.0.1",
+    "happner-hyperid": "2.0.0",
+    "micromustache": "^5.2.0",
     "redis-lru-cache": "0.1.0",
     "shortid": "2.2.8",
     "sift": "3.2.6",

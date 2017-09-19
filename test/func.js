@@ -418,29 +418,25 @@ describe('func', function () {
 
     var bulkItems = [
       {
-        path:'/bulk/test/' + testId + '1',
         data:{
           test:1
         }
       },{
-        path:'/bulk/test' + testId + '2',
         data:{
           test:2
         }
       },{
-        path:'/bulk/test' + testId + '3',
         data:{
           test:3
         }
       },{
-        path:'/bulk/test' + testId + '4',
         data:{
           test:4
         }
       }
     ];
 
-    serviceInstance.upsert(bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
+    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
 
       if (e) return done(e);
 
@@ -448,8 +444,26 @@ describe('func', function () {
 
       expect(inserted.items.length).to.be(4);
 
-      done();
+      console.log(JSON.stringify(inserted, null, 2));
 
+      for (var i = 0; i < inserted.items.length; i++) expect(inserted.items[i].index.result).to.be('created');
+
+      done();
     });
   });
+
+  it('tests a bulk fail due to too many items', function (done) {
+
+    var bulkItems = [];
+
+    for (var i = 0; i < 1001; i++) bulkItems.push({test:i.toString()});
+
+    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e) {
+
+      expect(e.toString()).to.be('Error: bulk batches can only be 1000 entries or less');
+
+      done();
+    });
+  });
+  
 });

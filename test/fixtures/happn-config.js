@@ -37,6 +37,9 @@ module.exports = {
                   dataroutes: [{
                     pattern: "/1_eventemitter_embedded_sanity/" + testId + "/testsubscribe/data/complex*",
                     index: "sortedandlimitedindex1"
+                  }, {
+                    dynamic: true,//dynamic routes generate a new index/type according to the items in the path
+                    pattern: "/dynamic/{{index}}/{{type}}/*"
                   },{
                     pattern: "*",
                     index: "happner"
