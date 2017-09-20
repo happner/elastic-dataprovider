@@ -3,9 +3,6 @@ before_install:
   - if [[ `npm -v` != 5* ]]; then npm i -g npm@5; fi
 node_js:
   - "8"
-  - "7"
-  - "6"
-  - "4"
 env:
   - NODE_TLS_REJECT_UNAUTHORIZED=0
 services:

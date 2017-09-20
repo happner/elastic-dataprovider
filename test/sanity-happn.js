@@ -1165,7 +1165,7 @@ describe('sanity-happn', function () {
     });
   });
 
-  it.only('should fail bad index and type', function (done) {
+  it('should fail bad index and type', function (done) {
 
     var dynamicType = (test_id + 'TYPE');
 
