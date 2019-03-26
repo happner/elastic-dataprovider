@@ -360,7 +360,7 @@ function __createBulkMessage(path, setData, options) {
           bulkMessage.body.push({
             created: modifiedOn,
             modified: modifiedOn,
-            timestamp: modifiedOn,
+            timestamp: bulkItem.data.timestamp || modifiedOn,
             path: route.path,
             data: bulkItem.data,
             modifiedBy: options.modifiedBy,
@@ -670,7 +670,8 @@ function __partialTransform(dataItem, index, type) {
     createdBy: dataItem._source.createdBy,
     modifiedBy: dataItem._source.modifiedBy,
     deletedBy: dataItem._source.deletedBy,
-    data: dataItem._source.data
+    data: dataItem._source.data,
+    timestamp: dataItem._source.timestamp
   };
 }
 

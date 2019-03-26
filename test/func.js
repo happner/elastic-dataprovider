@@ -28,11 +28,11 @@ describe('func', function () {
             }
           }
         }
-    }],
+      }],
     dataroutes: [{
       pattern: "/sort_and_limit/*",
       index: "sortandlimitindex"
-    },{
+    }, {
       pattern: "*",
       index: "happner"
     }]
@@ -128,7 +128,7 @@ describe('func', function () {
 
         if (e) return callback(e);
 
-        setTimeout(function(){
+        setTimeout(function () {
 
           serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
 
@@ -211,7 +211,7 @@ describe('func', function () {
       $or: [{"data.regions": {$in: ['North', 'South', 'East', 'West']}},
         {"data.towns": {$in: ['North.Cape Town', 'South.East London']}},
         {"data.categories": {$in: ["Action", "History"]}}],
-        "data.keywords": {$in: ["bass", "Penny Siopis"]}
+      "data.keywords": {$in: ["bass", "Penny Siopis"]}
     };
 
     var options1 = {
@@ -418,25 +418,25 @@ describe('func', function () {
 
     var bulkItems = [
       {
-        data:{
-          test:1
+        data: {
+          test: 1
         }
-      },{
-        data:{
-          test:2
+      }, {
+        data: {
+          test: 2
         }
-      },{
-        data:{
-          test:3
+      }, {
+        data: {
+          test: 3
         }
-      },{
-        data:{
-          test:4
+      }, {
+        data: {
+          test: 4
         }
       }
     ];
 
-    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
+    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType: serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
 
       if (e) return done(e);
 
@@ -450,18 +450,75 @@ describe('func', function () {
     });
   });
 
+  it('tests a bulk insert with a timestamp', function (done) {
+
+    var date = (new Date()).getTime() - 60000;
+
+    var bulkItems = [
+      {
+        data: {
+          test: 1,
+          timestamp: date
+        }
+      }, {
+        data: {
+          test: 2,
+          timestamp: date
+        }
+      }, {
+        data: {
+          test: 3
+        }
+      }, {
+        data: {
+          test: 4
+        }
+      }
+    ];
+    serviceInstance.remove('/bulk/test/*', function (e) {
+      if (e) return done(e);
+
+      serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType: serviceInstance.UPSERT_TYPE.bulk}, false, function (e, inserted) {
+
+        if (e) return done(e);
+
+        expect(inserted.errors).to.be(false);
+
+        expect(inserted.items.length).to.be(4);
+
+        for (var i = 0; i < inserted.items.length; i++)
+          expect(inserted.items[i].index.result).to.be('created');
+
+        serviceInstance.find('/bulk/test/*', {}, function (err, items) {
+          if (err) return done(err);
+
+          expect(items.length).to.be(4);
+
+          items.forEach(function (item) {
+            if (item.data.timestamp)
+              expect(item.timestamp).to.be(item.data.timestamp);
+          });
+
+          done();
+        });
+      });
+
+    });
+  });
+
+
   it('tests a bulk fail due to too many items', function (done) {
 
     var bulkItems = [];
 
-    for (var i = 0; i < 1001; i++) bulkItems.push({test:i.toString()});
+    for (var i = 0; i < 1001; i++) bulkItems.push({test: i.toString()});
 
-    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType:serviceInstance.UPSERT_TYPE.bulk}, false, function (e) {
+    serviceInstance.upsert('/bulk/test/{id}', bulkItems, {upsertType: serviceInstance.UPSERT_TYPE.bulk}, false, function (e) {
 
       expect(e.toString()).to.be('Error: bulk batches can only be 1000 entries or less');
 
       done();
     });
   });
-  
+
 });
