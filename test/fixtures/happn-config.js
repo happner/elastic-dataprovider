@@ -7,6 +7,7 @@ module.exports = {
       services:{
         data:{
           config:{
+            autoUpdateDBVersion: true,
             datastores:[
               {
                 name:'elastic',

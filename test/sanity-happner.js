@@ -254,7 +254,7 @@ describe('sanity-happner', function () {
             return dataComponent.set('/some/path/five', {key: 1}) // <------ 2
           })
           .then(function () {
-            return dataComponent.off('/some/path/five') // <------------- unsub
+            return dataComponent.offPath('/some/path/five') // <------------- unsub
           })
           .then(function () {
             return dataComponent.set('/some/path/five', {key: 1}) // <------- 3

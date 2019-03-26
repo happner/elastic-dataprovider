@@ -111,14 +111,14 @@ describe('sanity-happn', function () {
         count: 1
       }, function (message) {
 
-        expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event/*'].length).to.be(0);
+        expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event/*']).to.be.undefined;
         callback();
 
       }, function (e) {
 
         if (!e) {
 
-          expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event/*'].length).to.be(1);
+          expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event/*'].length).to.be(1);
 
           //then make the change
           publisherclient.set('/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event/blah', {
@@ -491,7 +491,7 @@ describe('sanity-happn', function () {
         count: 1
       }, function (message) {
 
-        expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(0);
+        expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event']).to.be.undefined;
         callback();
 
       }, function (e) {
@@ -500,7 +500,7 @@ describe('sanity-happn', function () {
 
         if (!e) {
 
-          expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(1);
+          expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(1);
           //////////////////console.log('on subscribed, about to publish');
 
           //then make the change
@@ -634,14 +634,14 @@ describe('sanity-happn', function () {
         count: 1
       }, function (message) {
 
-        expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(0);
+        expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event']).to.be.undefined;
         callback();
 
       }, function (e) {
 
         if (!e) {
 
-          expect(listenerclient.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(1);
+          expect(listenerclient.state.events['/SET@/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/event'].length).to.be(1);
 
           ////////////////////////////console.log('on subscribed, about to publish');
 

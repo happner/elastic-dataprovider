@@ -1,6 +1,6 @@
 {
   "name": "happner-elastic-dataprovider",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "scripts": {
     "test": "mocha test",
     "test-perf": "mocha test/perf.js"
