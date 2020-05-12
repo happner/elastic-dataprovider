@@ -615,7 +615,55 @@ function findOne(criteria, fields, callback) {
   })
 };
 
-function count(message, callback) {
+function count(pathOrMessage, parametersOrCallBack, callback) {
+  var _this = this;
+  let countMessage = {};
+
+  let path = "";
+  if(typeof  pathOrMessage === "string")
+  {
+    const searchPath = _this.preparePath(pathOrMessage);
+    const route = _this.__getRoute(searchPath);
+    countMessage = {
+      "index": route.index,
+      "type": route.type,
+    }
+  } else
+  {
+    countMessage = {
+      index: pathOrMessage.index,
+      type: pathOrMessage.type
+    };
+    if (pathOrMessage.id)
+      countMessage.body = {
+        "query": {
+          "match": {
+            "path": pathOrMessage.id
+          }
+        }
+      };
+    else if (pathOrMessage.body) countMessage.body = pathOrMessage.body;
+
+  }
+  if(typeof  parametersOrCallBack === "function")
+  {
+    callback = parametersOrCallBack
+    parametersOrCallBack = {};
+  } else
+    if (parametersOrCallBack.options) mongoToElastic.convertOptions(parametersOrCallBack.options, elasticMessage);
+
+  _this.__pushElasticMessage('count', countMessage)
+
+      .then(function(response){
+
+        callback(null, response.count);
+      })
+      .catch(callback);
+
+}
+
+
+function countLegacy(message, callback) {
 
   var _this = this;
 
