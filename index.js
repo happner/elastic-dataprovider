@@ -5,7 +5,7 @@ const traverse = require('traverse');
 const Comedian = require('co-median');
 const Cache = require('redis-lru-cache');
 const hyperid = require('happner-hyperid').create({urlSafe: true});
-const micromustache = require('micromustache')
+const micromustache = require('micromustache');
 
 
 function ElasticProvider(config) {
@@ -34,7 +34,7 @@ ElasticProvider.prototype.UPSERT_TYPE = {
   upsert: 0,
   update: 1,
   insert: 2,
-  bulk: 3
+  bulk: 3,
 };
 
 
@@ -582,7 +582,23 @@ function count(pathOrMessage, parametersOrCallBack, callback) {
     countMessage = {
       'index': route.index,
       'type': route.type,
+      'body': {'query': {}},
     };
+    countMessage;
+
+    if (searchPath.indexOf('*') > -1) {
+      countMessage.body.query = {
+        'regexp': {
+          'path': _this.escapeRegex(searchPath).replace(/\\\*/g, '.*'),
+        },
+      };
+    } else {
+      countMessage.body.query = {
+        'match': {
+          'path': searchPath,
+        },
+      };
+    }
   } else {
     countMessage = {
       index: pathOrMessage.index,
@@ -612,34 +628,6 @@ function count(pathOrMessage, parametersOrCallBack, callback) {
       .catch(callback);
 }
 
-
-function countLegacy(message, callback) {
-  const _this = this;
-
-  // [start:{"key":"count", "self":"_this"}:start]
-
-  const countMessage = {
-    index: message.index,
-    type: message.type,
-  };
-
-  if (message.id) {
-    countMessage.body = {
-      'query': {
-        'match': {
-          'path': message.id,
-        },
-      },
-    };
-  } else if (message.body) countMessage.body = message.body;
-
-  _this.__pushElasticMessage('count', countMessage)
-
-      .then(function(response) {
-        callback(null, response.count);
-      })
-      .catch(callback);
-}
 
 
 function __partialTransformAll(dataItems) {
