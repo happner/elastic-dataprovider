@@ -1,5 +1,4 @@
 const mongoToElastic = require('./lib/mongo-to-elastic');
-const sift = require('sift');
 const async = require('async');
 const traverse = require('traverse');
 const Comedian = require('co-median');
@@ -68,6 +67,7 @@ ElasticProvider.prototype.remove = remove;
 
 ElasticProvider.prototype.find = find;
 
+
 ElasticProvider.prototype.findOne = findOne;
 
 ElasticProvider.prototype.count = count;
@@ -123,7 +123,7 @@ ElasticProvider.prototype.__pushElasticMessage = __pushElasticMessage;
 
 ElasticProvider.prototype.__wildcardMatch = __wildcardMatch;
 
-ElasticProvider.prototype.escapeRegex = escapeRegex;
+ElasticProvider.prototype.escapeRegex = mongoToElastic.escapeRegex;
 
 ElasticProvider.prototype.preparePath = preparePath;
 
@@ -487,7 +487,9 @@ function remove(path, callback) {
   });
 }
 
-function find(path, parameters, callback) {
+
+function find(path,parameters, callback)
+{
   const _this = this;
 
   const searchPath = _this.preparePath(path);
@@ -500,18 +502,39 @@ function find(path, parameters, callback) {
     // [end:{"key":"find", "self":"_this"}:end]
     return callback(null, []);
   }
+  if(!parameters.criteria)
+    parameters.criteria = {};
+  if(!parameters.criteria.path)
+    parameters.criteria.path = route.path;
+  let searchString = "";
+  try {
+     searchString = mongoToElastic.convertCriteria(parameters.criteria)
+  } catch(e)
+  {
+    callback(e)
+  }
+    const query = {
+      'query': {
+        'constant_score': {
+          'filter': {
+            "query_string": {
+              "query":   searchString ,
+            }
+          }
+        }
+      }
+    };
+
+
+
 
   const elasticMessage = {
     'index': route.index,
     'type': route.type,
-    'body': {
-      'query': {
-        'bool': {
-          'must': [],
-        },
-      },
-    },
+    'body':query
   };
+
+
 
   if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage);// this is because the $not keyword works in nedb and sift, but not in elastic
 
@@ -519,23 +542,7 @@ function find(path, parameters, callback) {
 
   if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
 
-  const returnType = searchPath.indexOf('*'); // 0,1 == array -1 == single
 
-  if (returnType > -1) {
-    // NB: elasticsearch regexes are always anchored so elastic adds a ^ at the beginning and a $ at the end.
-
-    elasticMessage.body['query']['bool']['must'].push({
-      'regexp': {
-        'path': _this.escapeRegex(searchPath).replace(/\\\*/g, '.*'),
-      },
-    });
-  } else {
-    elasticMessage.body['query']['bool']['must'].push({
-      'terms': {
-        '_id': [searchPath],
-      },
-    });
-  }
 
   _this.__pushElasticMessage('search', elasticMessage)
 
@@ -543,13 +550,12 @@ function find(path, parameters, callback) {
         if (resp.hits && resp.hits.hits && resp.hits.hits.length > 0) {
           let found = resp.hits.hits;
 
-          if (parameters.criteria) found = _this.__filter(_this.__parseFields(parameters.criteria), found);
-
           callback(null, _this.__partialTransformAll(found));
         } else callback(null, []);
       })
       .catch(callback);
 }
+
 
 function findOne(criteria, fields, callback) {
   const _this = this;
@@ -784,12 +790,6 @@ function __getMeta(response) {
 
 function __wildcardMatch(pattern, matchTo) {
   return this.__comedian.matches(pattern, matchTo);
-}
-
-function escapeRegex(str) {
-  if (typeof str !== 'string') throw new TypeError('Expected a string');
-
-  return str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
 }
 
 function preparePath(path) {

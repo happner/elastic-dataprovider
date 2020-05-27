@@ -1,3 +1,7 @@
+const util = require('util');
+const shortId = require('shortid')
+
+const MongoToElastic = require("../lib/mongo-to-elastic")
 describe('func', function () {
 
   this.timeout(5000);
@@ -6,7 +10,7 @@ describe('func', function () {
 
   var service = require('..');
 
-  var testId = require('shortid').generate();
+  var testId = shortId.generate();
 
   var config = {
     "host": "http://localhost:9200",
@@ -39,6 +43,35 @@ describe('func', function () {
   };
 
   var serviceInstance = new service(config);
+
+  // note that  modifies the path
+  function AddSearchDelete(path,data,CorrectSearchCriteria,IncorrectSearchCriteria){
+    const ran = shortId()
+    const pathNew = `${path}/${ran}`
+    return new Promise((resolve,reject)=>{
+      serviceInstance.upsert(pathNew , data ,{},false,(err)=>{
+        if(err)
+          return reject(err)
+        serviceInstance.find(`${path}/*`,{"criteria" : CorrectSearchCriteria},(err,data)=>{
+          if(err || !data)
+            return reject(err)
+
+          let valid = (data.findIndex(ob => ob._id === pathNew)) > -1;
+          expect(valid).to.be(true);
+          serviceInstance.find(`${path}/*`,{"criteria" : IncorrectSearchCriteria},(err,data)=> {
+            if(err || !data)
+              return reject(err)
+            expect(data.length).to.be(0);
+            serviceInstance.remove(pathNew, (err, dataRemove) => {
+              resolve({"valid": (valid > -1), "data": data});
+            })
+          })
+        })
+      })
+    })
+  }
+
+
 
   before('should initialize the service', function (callback) {
 
@@ -343,56 +376,32 @@ describe('func', function () {
 
     async.eachSeries(randomItems,
 
-      function (item, callback) {
+        function (item, callback) {
 
-        var testPath = base_path + item.item_sort_id;
+          var testPath = base_path + item.item_sort_id;
 
-        serviceInstance.upsert(testPath, {data: item}, {noPublish: true}, false, function (e) {
+          serviceInstance.upsert(testPath, {data: item}, {noPublish: true}, false, function (e) {
 
-          if (e) return callback(e);
+            if (e) return callback(e);
 
-          callback();
+            callback();
 
-        });
-      },
+          });
+        },
 
-      function (e) {
-
-        if (e) return done(e);
-
-        //ascending
-        randomItems.sort(function (a, b) {
-
-          return a.item_sort_id - b.item_sort_id;
-        });
-
-        serviceInstance.find(base_path + '*', {
-          options: {sort: {'data.item_sort_id': 1}},
-          limit: LIMIT
-        }, function (e, items) {
+        function (e) {
 
           if (e) return done(e);
-
-          for (var itemIndex in items) {
-
-            if (itemIndex >= 50) break;
-
-            var item_from_elastic = items[itemIndex];
-
-            var item_from_array = randomItems[itemIndex];
-
-            if (item_from_elastic.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('ascending sort failed'));
-          }
 
           //ascending
           randomItems.sort(function (a, b) {
 
-            return b.item_sort_id - a.item_sort_id;
+            return a.item_sort_id - b.item_sort_id;
           });
 
-          serviceInstance.find(base_path + '/*', {
-            options: {sort: {"data.item_sort_id": -1}},
-            limit: 50
+          serviceInstance.find(base_path + '*', {
+            options: {sort: {'data.item_sort_id': 1}},
+            limit: LIMIT
           }, function (e, items) {
 
             if (e) return done(e);
@@ -401,16 +410,40 @@ describe('func', function () {
 
               if (itemIndex >= 50) break;
 
-              var item_from_mongo = items[itemIndex];
+              var item_from_elastic = items[itemIndex];
+
               var item_from_array = randomItems[itemIndex];
 
-              if (item_from_mongo.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('descending sort failed'));
+              if (item_from_elastic.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('ascending sort failed'));
             }
 
-            done();
+            //ascending
+            randomItems.sort(function (a, b) {
+
+              return b.item_sort_id - a.item_sort_id;
+            });
+
+            serviceInstance.find(base_path + '/*', {
+              options: {sort: {"data.item_sort_id": -1}},
+              limit: 50
+            }, function (e, items) {
+
+              if (e) return done(e);
+
+              for (var itemIndex in items) {
+
+                if (itemIndex >= 50) break;
+
+                var item_from_mongo = items[itemIndex];
+                var item_from_array = randomItems[itemIndex];
+
+                if (item_from_mongo.data.item_sort_id != item_from_array.item_sort_id) return done(new Error('descending sort failed'));
+              }
+
+              done();
+            });
           });
-        });
-      }
+        }
     );
   });
 
@@ -521,4 +554,585 @@ describe('func', function () {
     });
   });
 
+  it('count works with happner-datastore style parameter',  function(done) {
+
+    const dataItem = [
+      {data: {"test": "data1"}},
+      {data: {"test": "data1"}},
+      {data: {"test": "data1"}},
+      {data: {"test": "data2"}},
+      {data: {"test": "data2"}}
+    ]
+
+    let insertCount = 0
+
+    async function countEntries()
+    {
+
+      let countPromise = util.promisify(serviceInstance.count).bind(serviceInstance);
+      let countAll = await countPromise('/countTest/num*');
+      expect(countAll).to.be(5);
+      let count1 = await countPromise('/countTest/num1');
+      expect(count1).to.be(1);
+      let count2 = await countPromise('/countTest/*');
+      expect(count2).to.be(5);
+      done()
+
+
+
+    }
+
+
+    for(let i = 0 ; i < dataItem.length ; ++i)
+    {
+      serviceInstance.upsert(`/countTest/num${i}`,dataItem[i],{},false,(err)=>{
+        if(err)
+          done(err)
+        insertCount++
+        if(insertCount === dataItem.length )
+        {
+          countEntries()
+        }
+      });
+
+
+    }
+
+
+
+
+
+  });
+
+  it('find ',  function(done) {
+
+    const dataItem = [
+      {data: {"test": "data1"}},
+      {data: {"test": "data1"}},
+      {data: {"test": "data1"}},
+      {data: {"test": "data2"}},
+      {data: {"test": "data2"}}
+    ]
+
+    let insertCount = 0
+
+    async function findEntries()
+    {
+
+      // serviceInstance.findNew("/findTest/num1",{criteria : {"query":"data.test:data1"}},(err,data)=>{
+      //   debugger
+      //   done();
+      // })
+
+      // const body = {
+      //   'query': {
+      //
+      //         'query_string': {
+      //           "query": "(data.test:data1)"
+      //         }
+      //
+      //   }
+      // };
+
+
+      const body = {
+        'query': {
+          'constant_score': {
+            'filter': {
+              "query_string": {
+                "query":     [{'path' :'/findTest/num1' }],
+              }
+            }
+          }
+        }
+      };
+
+      serviceInstance.find("/findTest/num1",body,(err,data)=>{
+
+        done();
+      })
+
+    }
+
+
+    for(let i = 0 ; i < dataItem.length ; ++i)
+    {
+      serviceInstance.upsert(`/findTest/num${i}`,dataItem[i],{},false,(err)=>{
+        if(err)
+          done(err)
+        insertCount++
+        if(insertCount === dataItem.length )
+        {
+          findEntries()
+        }
+      });
+
+
+    }
+
+
+
+
+
+  });
+
+
+
+
+  it('Criteria Conversion - Embedded Document   ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "twigLeaf" }
+        }
+      }
+    }
+    let dataItemNotAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "twigLeafNotAdded" }
+        }
+      }
+    }
+
+    AddSearchDelete("/criteriaConversion",dataItemAdded,dataItemAdded,dataItemNotAdded).then((data)=>{
+     done();
+    }).catch(done)
+
+
+  })
+
+
+
+
+
+  it('Criteria Conversion - Mongo Operator eq  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "twigLeaf" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$eq":"trunkLeaf"},
+      }
+    }
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$eq":"trunk"},
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionEq",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+        done();
+    }).catch(done)
+
+
+  })
+
+
+  it('Criteria Conversion - Mongo Operator gt  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":5,
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$gt":4},
+      }
+    }
+    let filterItemCorrect2 = {
+      "data" : {
+        "trunk":{"$gte":5},
+      }
+    }
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$gt":5},
+      }
+    }
+    let filterItemIncorect2 = {
+      "data" : {
+        "trunk":{"$gte":6},
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionsEq",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsEqe",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+     done();
+    }).catch(done)
+
+
+  })
+
+  it('Criteria Conversion - Mongo Operator lt  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":5,
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$lt":6},
+      }
+    }
+    let filterItemCorrect2 = {
+      "data" : {
+        "trunk":{"$lte":5},
+      }
+    }
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$lt":5},
+      }
+    }
+    let filterItemIncorect2 = {
+      "data" : {
+        "trunk":{"$lte":4},
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionsLt",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsLte",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+
+
+  })
+
+  it('Criteria Conversion - Mongo Operator in  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$in":["goodbye","hello"]},
+      }
+    }
+    let filterItemCorrect2 = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : {"$in":["branchLeaf","test"]},
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$in":["Wrong"]},
+      }
+    }
+    let filterItemIncorect2 = {
+      "data" : {
+        "trunk":{"$in":["Wrong","VeryWorng","hell"]},
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+  it('Criteria Conversion - Mongo Operator ne  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$ne":"goodbye"},
+      }
+    }
+    let filterItemCorrect2 = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : {"$ne":"NotbranchLeaf"},
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$ne":"hello"},
+      }
+    }
+    let filterItemIncorect2 = {
+      "data" : {
+        "trunk2" : {
+          "branch1" : {"$ne":"branchLeaf"},
+        }
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionsNe",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsNe",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+  it('Criteria Conversion - Mongo Operator in  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+      "data" : {
+        "trunk":{"$in":["goodbye","hello"]},
+      }
+    }
+    let filterItemCorrect2 = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : {"$in":["branchLeaf","test"]},
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+
+    let filterItemIncorect = {
+      "data" : {
+        "trunk":{"$in":["Wrong"]},
+      }
+    }
+    let filterItemIncorect2 = {
+      "data" : {
+        "trunk":{"$in":["Wrong","VeryWorng","hell"]},
+      }
+    }
+
+    AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+
+
+
+  it('Criteria Conversion - Mongo Operator And  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"hello",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+
+        "$and" : [{"data.trunk" :"hello"},{"data.trunk2.branch1" : "branchLeaf"}]
+
+    }
+    let filterItemCorrect2 = {
+
+      "$and" : [{"data.trunk" :"hello"}]
+
+    }
+
+    let filterItemIncorect = {
+
+      "$and" : [{"data.trunk" :"hello"},{"data.trunk2.branch1" : "branchLeaf"},{"data.trunk2.branch2" : "branchLeaf"}]
+    }
+    let filterItemIncorect2 = {
+
+        "$and" : [{"data.trunk" :"hell"}]
+
+    }
+
+    AddSearchDelete("/criteriaConversionsAnd",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsAnd",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+
+  it('Criteria Conversion - Mongo Operator OR  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+
+      "$or" : [{"data.trunk" :"trunkLeaf"},{"data.trunk" : "incorrectValue"}]
+
+    }
+    let filterItemCorrect2 = {
+
+      "$or" : [{"data.trunk" : "incorrectValue"},{"data.trunk2.branch2" :{"twig":"5"}}]
+
+    }
+
+    let filterItemIncorect = {
+
+      "$or" : [{"data.trunk" :"IncorrectValue"},{"data.trunk2.branch1" : "branchL"},{"data.trunk2.branch2" : "branchLeaf"}]
+    }
+    let filterItemIncorect2 = {
+
+      "$or" : [{"data.trunk" :"IncorrectValue"},{"data.trunk2" : {"branch1":"branchL"}},{"data.trunk2" : {"branch2":"branchLeaf"}}]
+
+    }
+
+    AddSearchDelete("/criteriaConversionsOr",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+  it('Criteria Conversion - Mongo Operator NOR  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let filterItemCorrect = {
+
+      "$nor" : [{"data.trunk" :"trunkLeaz"},{"data.trunk2.branch2.twig" : "4"}]
+
+    }
+    let filterItemCorrect2 = {
+
+      "$nor" : [{"data.trunk2.branch2.twig" : "6"},{"data.trunk2.branch2" :{"twig" :"4"}}]
+
+    }
+
+    let filterItemIncorect = {
+
+      "$nor" : [{"data.trunk" :"trunkLeaf"},{"data.trunk2.branch2.twig" : "5"}]
+    }
+    let filterItemIncorect2 = {
+
+        "$nor" : [{"data.trunk" :"t"},{"data.trunk2.branch2" : {"twig":"5"}}]
+
+    }
+
+    AddSearchDelete("/criteriaConversionsOr",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
+
+      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).then((data)=>{
+      done();
+    }).catch(done)
+  })
+
+  it('Criteria Conversion - unsupported opperator  ',  function(done) {
+    let testIdNew = require('shortid').generate();
+
+    let dataItemAdded = {
+      "data" : {
+        "trunk":"trunkLeaf",
+        "trunk2" : {
+          "branch1" : "branchLeaf",
+          "branch2" : {"twig" : "5" }
+        }
+      }
+    }
+    let invalidfilter =    {
+      loc: {
+        $geoIntersects: {
+          $geometry: {
+            type: "Polygon" ,
+            coordinates: [
+              [ [ 0, 0 ], [ 3, 6 ], [ 6, 1 ], [ 0, 0 ] ]
+            ]
+          }
+        }
+      }
+    }
+
+
+    AddSearchDelete("/criteriaConversionsOr",dataItemAdded,invalidfilter,{}).then((data)=>{
+      done(data);
+
+      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
+    }).catch((e) => {
+
+      expect(e.message).to.be("unkown or unsuported MongoOperator '$geoIntersects'");
+      done()
+    })
+  })
+
+
 });
+
