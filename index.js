@@ -506,6 +506,10 @@ function find(path,parameters, callback)
     parameters.criteria = {};
   if(!parameters.criteria.path)
     parameters.criteria.path = route.path;
+
+   if( parameters.criteria.path .indexOf('*') === -1)
+     parameters.criteria.path = parameters.criteria.path.replace(/\//g,"\\/")
+
   let searchString = "";
   try {
      searchString = mongoToElastic.convertCriteria(parameters.criteria)
@@ -524,8 +528,6 @@ function find(path,parameters, callback)
         }
       }
     };
-
-
 
 
   const elasticMessage = {
