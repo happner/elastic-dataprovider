@@ -2,6 +2,7 @@ language: node_js
 node_js:
   - "10"
   - "11"
+  - "12"
 before_install:
   - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.5.1.deb && sudo service elasticsearch restart
 env:

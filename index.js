@@ -1046,7 +1046,7 @@ function __buildIndexObj(indexConfig) {
     index: indexConfig.index,
     body: {
       'mappings': {},
-    },
+    }
   };
 
   const typeJSON = {
@@ -1092,9 +1092,8 @@ function __createIndexes(callback) {
 
   let indexJSON = _this.__buildIndexObj({
     index: _this.__config.defaultIndex,
-    type: _this.__config.defaultType,
-  },
-  );
+    type: _this.__config.defaultType
+  });
 
   if (!defaultIndexFound) {
     _this.__config.indexes.push(indexJSON);
