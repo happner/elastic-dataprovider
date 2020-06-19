@@ -20,7 +20,7 @@ function ElasticProvider(config) {
 
   if (!config.wildcardCache) config.wildcardCache = {cache: 1000};
 
-  if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 100;
+  if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 20;
 
   Object.defineProperty(this, '__config', {value: config});
 
