@@ -44,7 +44,7 @@ describe('func', function () {
 
   var serviceInstance = new service(config);
 
-  // note that  modifies the path
+  // note that the path is appended with a shortId, thus the data is not stored to the path given to function
   function AddSearchDelete(path,data,CorrectSearchCriteria,IncorrectSearchCriteria){
     const ran = shortId()
     const pathNew = `${path}/${ran}`
@@ -586,15 +586,13 @@ describe('func', function () {
     for(let i = 0 ; i < dataItem.length ; ++i)
     {
       serviceInstance.upsert(`/countTest/num${i}`,dataItem[i],{},false,(err)=>{
-        if(err)
-          done(err)
+        if(err) return done(err)
         insertCount++
         if(insertCount === dataItem.length )
         {
           countEntries()
         }
       });
-
 
     }
 
@@ -619,22 +617,6 @@ describe('func', function () {
     async function findEntries()
     {
 
-      // serviceInstance.findNew("/findTest/num1",{criteria : {"query":"data.test:data1"}},(err,data)=>{
-      //   debugger
-      //   done();
-      // })
-
-      // const body = {
-      //   'query': {
-      //
-      //         'query_string': {
-      //           "query": "(data.test:data1)"
-      //         }
-      //
-      //   }
-      // };
-
-
       const body = {
         'query': {
           'constant_score': {
@@ -648,7 +630,8 @@ describe('func', function () {
       };
 
       serviceInstance.find("/findTest/num1",body,(err,data)=>{
-
+        expect(data.length).to.be(1);
+        expect(data[0]._id).to.be("/findTest/num1")
         done();
       })
 
@@ -658,22 +641,14 @@ describe('func', function () {
     for(let i = 0 ; i < dataItem.length ; ++i)
     {
       serviceInstance.upsert(`/findTest/num${i}`,dataItem[i],{},false,(err)=>{
-        if(err)
-          done(err)
+        if(err) return done(err)
         insertCount++
         if(insertCount === dataItem.length )
         {
           findEntries()
         }
       });
-
-
     }
-
-
-
-
-
   });
 
 
@@ -922,53 +897,6 @@ describe('func', function () {
       done();
     }).catch(done)
   })
-
-  it('Criteria Conversion - Mongo Operator in  ',  function(done) {
-    let testIdNew = require('shortid').generate();
-
-    let dataItemAdded = {
-      "data" : {
-        "trunk":"hello",
-        "trunk2" : {
-          "branch1" : "branchLeaf",
-          "branch2" : {"twig" : "5" }
-        }
-      }
-    }
-    let filterItemCorrect = {
-      "data" : {
-        "trunk":{"$in":["goodbye","hello"]},
-      }
-    }
-    let filterItemCorrect2 = {
-      "data" : {
-        "trunk":"hello",
-        "trunk2" : {
-          "branch1" : {"$in":["branchLeaf","test"]},
-          "branch2" : {"twig" : "5" }
-        }
-      }
-    }
-
-    let filterItemIncorect = {
-      "data" : {
-        "trunk":{"$in":["Wrong"]},
-      }
-    }
-    let filterItemIncorect2 = {
-      "data" : {
-        "trunk":{"$in":["Wrong","VeryWorng","hell"]},
-      }
-    }
-
-    AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect,filterItemIncorect).then((data)=>{
-
-      return  AddSearchDelete("/criteriaConversionsIn",dataItemAdded,filterItemCorrect2,filterItemIncorect2)
-    }).then((data)=>{
-      done();
-    }).catch(done)
-  })
-
 
 
 
