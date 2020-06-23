@@ -1117,13 +1117,6 @@ describe('func', function () {
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, invalidfilter, {})
       .then((data) => {
         done(data);
-
-        return AddSearchDelete(
-          '/criteriaConversionsIn',
-          dataItemAdded,
-          filterItemCorrect2,
-          filterItemIncorect2
-        );
       })
       .catch((e) => {
         expect(e.message).to.be("unkown or unsuported MongoOperator '$geoIntersects'");
