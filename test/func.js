@@ -436,7 +436,7 @@ describe('func', function () {
         });
 
         serviceInstance.find(
-          base_path + '*',
+          base_path + '/*',
           {
             options: { sort: { 'data.item_sort_id': 1 } },
             limit: LIMIT,
