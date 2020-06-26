@@ -5,6 +5,7 @@ const Comedian = require('co-median');
 const Cache = require('redis-lru-cache');
 const hyperid = require('happner-hyperid').create({ urlSafe: true });
 const micromustache = require('micromustache');
+const sift = require('sift')
 
 function ElasticProvider(config) {
   if (config.cache) {
@@ -580,7 +581,7 @@ function count(pathOrMessage, parametersOrCallBack, callback) {
   const _this = this;
   let countMessage = {};
 
-  const path = '';
+
   if (typeof pathOrMessage === 'string') {
     const searchPath = _this.preparePath(pathOrMessage);
     const route = _this.__getRoute(searchPath);
@@ -623,7 +624,7 @@ function count(pathOrMessage, parametersOrCallBack, callback) {
     callback = parametersOrCallBack;
     parametersOrCallBack = {};
   } else if (parametersOrCallBack.options)
-    mongoToElastic.convertOptions(parametersOrCallBack.options, elasticMessage);
+    mongoToElastic.convertOptions(parametersOrCallBack.options, countMessage);
 
   _this
     .__pushElasticMessage('count', countMessage)
@@ -919,7 +920,7 @@ function setUpCache() {
       });
     });
   };
-
+  // eslint-disable-next-line
   console.warn('data caching is on, be sure you have redis up.');
 }
 
