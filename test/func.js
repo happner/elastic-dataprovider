@@ -2,7 +2,7 @@ const util = require('util');
 const shortId = require('shortid');
 
 const MongoToElastic = require('../lib/mongo-to-elastic');
-describe('func', function () {
+describe('func', function() {
   this.timeout(5000);
 
   var expect = require('expect.js');
@@ -17,8 +17,8 @@ describe('func', function () {
       {
         index: 'happner',
         body: {
-          mappings: {},
-        },
+          mappings: {}
+        }
       },
       {
         index: 'sortandlimitindex',
@@ -26,23 +26,23 @@ describe('func', function () {
           mappings: {
             happner: {
               properties: {
-                'data.item_sort_id': { type: 'integer' },
-              },
-            },
-          },
-        },
-      },
+                'data.item_sort_id': { type: 'integer' }
+              }
+            }
+          }
+        }
+      }
     ],
     dataroutes: [
       {
         pattern: '/sort_and_limit/*',
-        index: 'sortandlimitindex',
+        index: 'sortandlimitindex'
       },
       {
         pattern: '*',
-        index: 'happner',
-      },
-    ],
+        index: 'happner'
+      }
+    ]
   };
 
   var serviceInstance = new service(config);
@@ -52,12 +52,12 @@ describe('func', function () {
     const ran = shortId();
     const pathNew = `${path}/${ran}`;
     return new Promise((resolve, reject) => {
-      serviceInstance.upsert(pathNew, data, {}, false, (err) => {
+      serviceInstance.upsert(pathNew, data, {}, false, err => {
         if (err) return reject(err);
         serviceInstance.find(`${path}/*`, { criteria: CorrectSearchCriteria }, (err, data) => {
           if (err || !data) return reject(err);
 
-          let valid = data.findIndex((ob) => ob._id === pathNew) > -1;
+          let valid = data.findIndex(ob => ob._id === pathNew) > -1;
           expect(valid).to.be(true);
           serviceInstance.find(`${path}/*`, { criteria: IncorrectSearchCriteria }, (err, data) => {
             if (err || !data) return reject(err);
@@ -71,39 +71,39 @@ describe('func', function () {
     });
   }
 
-  before('should initialize the service', function (callback) {
-    serviceInstance.initialize(function (e) {
+  before('should initialize the service', function(callback) {
+    serviceInstance.initialize(function(e) {
       if (e) return callback(e);
 
       if (!serviceInstance.happn)
         serviceInstance.happn = {
           services: {
             utils: {
-              wildcardMatch: function (pattern, matchTo) {
+              wildcardMatch: function(pattern, matchTo) {
                 var regex = new RegExp(pattern.replace(/[*]/g, '.*'));
                 var matchResult = matchTo.match(regex);
 
                 if (matchResult) return true;
 
                 return false;
-              },
-            },
-          },
+              }
+            }
+          }
         };
 
       callback();
     });
   });
 
-  after(function (done) {
+  after(function(done) {
     serviceInstance.stop(done);
   });
 
-  it('sets data', function (callback) {
+  it('sets data', function(callback) {
     var beforeCreatedOrModified = Date.now();
 
-    setTimeout(function () {
-      serviceInstance.upsert('/set/' + testId, { data: { test: 'data' } }, {}, false, function (
+    setTimeout(function() {
+      serviceInstance.upsert('/set/' + testId, { data: { test: 'data' } }, {}, false, function(
         e,
         response,
         created,
@@ -123,10 +123,10 @@ describe('func', function () {
     }, 100);
   });
 
-  it('gets data', function (callback) {
+  it('gets data', function(callback) {
     this.timeout(5000);
 
-    serviceInstance.upsert('/get/' + testId, { data: { test: 'data' } }, {}, false, function (
+    serviceInstance.upsert('/get/' + testId, { data: { test: 'data' } }, {}, false, function(
       e,
       response,
       created
@@ -135,7 +135,7 @@ describe('func', function () {
 
       expect(created.data.test).to.equal('data');
 
-      serviceInstance.find('/get/' + testId, {}, function (e, items) {
+      serviceInstance.find('/get/' + testId, {}, function(e, items) {
         if (e) return callback(e);
 
         expect(items[0].data.test).to.be('data');
@@ -145,7 +145,7 @@ describe('func', function () {
     });
   });
 
-  it('gets data with wildcard', function (callback) {
+  it('gets data with wildcard', function(callback) {
     this.timeout(5000);
 
     serviceInstance.upsert(
@@ -153,7 +153,7 @@ describe('func', function () {
       { data: { test: 'data' } },
       {},
       false,
-      function (e, response) {
+      function(e, response) {
         if (e) return callback(e);
 
         serviceInstance.upsert(
@@ -161,11 +161,11 @@ describe('func', function () {
           { data: { test: 'data' } },
           {},
           false,
-          function (e, response) {
+          function(e, response) {
             if (e) return callback(e);
 
-            setTimeout(function () {
-              serviceInstance.find('/get/multiple/*/' + testId, {}, function (e, response) {
+            setTimeout(function() {
+              serviceInstance.find('/get/multiple/*/' + testId, {}, function(e, response) {
                 if (e) return callback(e);
 
                 expect(response.length).to.equal(2);
@@ -183,14 +183,14 @@ describe('func', function () {
     );
   });
 
-  it('removes data', function (callback) {
-    serviceInstance.upsert('/remove/' + testId, { data: { test: 'data' } }, {}, false, function (
+  it('removes data', function(callback) {
+    serviceInstance.upsert('/remove/' + testId, { data: { test: 'data' } }, {}, false, function(
       e,
       response
     ) {
       if (e) return callback(e);
 
-      serviceInstance.remove('/remove/' + testId, function (e, response) {
+      serviceInstance.remove('/remove/' + testId, function(e, response) {
         if (e) return callback(e);
 
         expect(response._meta.path).to.equal('/remove/' + testId);
@@ -201,13 +201,13 @@ describe('func', function () {
     });
   });
 
-  it('removes multiple data', function (callback) {
+  it('removes multiple data', function(callback) {
     serviceInstance.upsert(
       '/remove/multiple/1/' + testId,
       { data: { test: 'data' } },
       {},
       false,
-      function (e, response) {
+      function(e, response) {
         if (e) return callback(e);
 
         serviceInstance.upsert(
@@ -215,10 +215,10 @@ describe('func', function () {
           { data: { test: 'data' } },
           {},
           false,
-          function (e, response) {
+          function(e, response) {
             if (e) return callback(e);
 
-            serviceInstance.remove('/remove/multiple/*', function (e, response) {
+            serviceInstance.remove('/remove/multiple/*', function(e, response) {
               if (e) return callback(e);
 
               expect(response._meta.path).to.equal('/remove/multiple/*');
@@ -233,7 +233,7 @@ describe('func', function () {
     );
   });
 
-  it('gets data with complex search', function (callback) {
+  it('gets data with complex search', function(callback) {
     this.timeout(2000);
 
     var test_path_end = require('shortid').generate();
@@ -244,27 +244,27 @@ describe('func', function () {
       categories: ['Action', 'History'],
       subcategories: ['Action.angling', 'History.art'],
       keywords: ['bass', 'Penny Siopis'],
-      field1: 'field1',
+      field1: 'field1'
     };
 
     var criteria1 = {
       $or: [
         { 'data.regions': { $in: ['North', 'South', 'East', 'West'] } },
         { 'data.towns': { $in: ['North.Cape Town', 'South.East London'] } },
-        { 'data.categories': { $in: ['Action', 'History'] } },
+        { 'data.categories': { $in: ['Action', 'History'] } }
       ],
-      'data.keywords': { $in: ['bass', 'Penny Siopis'] },
+      'data.keywords': { $in: ['bass', 'Penny Siopis'] }
     };
 
     var options1 = {
       sort: { path: 1 },
-      limit: 1,
+      limit: 1
     };
 
     var criteria2 = null;
 
     var options2 = {
-      limit: 2,
+      limit: 2
     };
 
     // serviceInstance.upsert('/get/multiple/1/' + testId, {data:{"test":"data"}}, {}, false, function(e, response){
@@ -273,7 +273,7 @@ describe('func', function () {
       { data: complex_obj },
       {},
       false,
-      function (e, put_result) {
+      function(e, put_result) {
         expect(e == null).to.be(true);
 
         serviceInstance.upsert(
@@ -285,7 +285,7 @@ describe('func', function () {
           { data: complex_obj },
           {},
           false,
-          function (e, put_result) {
+          function(e, put_result) {
             expect(e == null).to.be(true);
 
             serviceInstance.upsert(
@@ -297,17 +297,17 @@ describe('func', function () {
               { data: { test: 'data' } },
               {},
               false,
-              function (e, put_result) {
+              function(e, put_result) {
                 expect(e == null).to.be(true);
 
-                setTimeout(function () {
+                setTimeout(function() {
                   serviceInstance.find(
                     '/1_eventemitter_embedded_sanity/' + testId + '/testsubscribe/data/complex*',
                     {
                       criteria: criteria1,
-                      options: options1,
+                      options: options1
                     },
-                    function (e, search_result) {
+                    function(e, search_result) {
                       if (e) return callback(e);
 
                       expect(search_result.length == 1).to.be(true);
@@ -318,9 +318,9 @@ describe('func', function () {
                           '/testsubscribe/data/complex*',
                         {
                           criteria: criteria2,
-                          options: options2,
+                          options: options2
                         },
-                        function (e, search_result) {
+                        function(e, search_result) {
                           if (e) return callback(e);
 
                           expect(search_result.length == 2).to.be(true);
@@ -339,10 +339,10 @@ describe('func', function () {
     );
   });
 
-  it('gets no data', function (callback) {
+  it('gets no data', function(callback) {
     var random = require('shortid').generate();
 
-    serviceInstance.find('/wontfind/' + random, {}, function (e, response) {
+    serviceInstance.find('/wontfind/' + random, {}, function(e, response) {
       if (e) return callback(e);
 
       expect(response).to.eql([]);
@@ -351,16 +351,16 @@ describe('func', function () {
     });
   });
 
-  it('gets data with $not', function (done) {
+  it('gets data with $not', function(done) {
     var test_obj = {
-      value: 'ok',
+      value: 'ok'
     };
 
     var test_obj1 = {
-      value: 'notok',
+      value: 'notok'
     };
 
-    serviceInstance.upsert('/not_get/' + testId + '/ok/1', { data: test_obj }, {}, false, function (
+    serviceInstance.upsert('/not_get/' + testId + '/ok/1', { data: test_obj }, {}, false, function(
       e,
       response
     ) {
@@ -371,14 +371,14 @@ describe('func', function () {
         { data: test_obj1 },
         {},
         false,
-        function (e, response2) {
+        function(e, response2) {
           if (e) return done(e);
 
           var listCriteria = { criteria: { $not: {} } };
 
           listCriteria.criteria.$not['path'] = { $regex: new RegExp('.*_notok_.*') };
 
-          serviceInstance.find('/not_get/' + testId + '/*', listCriteria, function (
+          serviceInstance.find('/not_get/' + testId + '/*', listCriteria, function(
             e,
             search_result
           ) {
@@ -393,7 +393,7 @@ describe('func', function () {
     });
   });
 
-  it('does a sort and limit', function (done) {
+  it('does a sort and limit', function(done) {
     var ITEMS = 20;
 
     var LIMIT = 10;
@@ -408,7 +408,7 @@ describe('func', function () {
 
     for (var i = 0; i < ITEMS; i++) {
       var item = {
-        item_sort_id: i + Math.floor(Math.random() * 1000000),
+        item_sort_id: i + Math.floor(Math.random() * 1000000)
       };
 
       randomItems.push(item);
@@ -417,21 +417,21 @@ describe('func', function () {
     async.eachSeries(
       randomItems,
 
-      function (item, callback) {
+      function(item, callback) {
         var testPath = base_path + item.item_sort_id;
 
-        serviceInstance.upsert(testPath, { data: item }, { noPublish: true }, false, function (e) {
+        serviceInstance.upsert(testPath, { data: item }, { noPublish: true }, false, function(e) {
           if (e) return callback(e);
 
           callback();
         });
       },
 
-      function (e) {
+      function(e) {
         if (e) return done(e);
 
         //ascending
-        randomItems.sort(function (a, b) {
+        randomItems.sort(function(a, b) {
           return a.item_sort_id - b.item_sort_id;
         });
 
@@ -439,9 +439,9 @@ describe('func', function () {
           base_path + '/*',
           {
             options: { sort: { 'data.item_sort_id': 1 } },
-            limit: LIMIT,
+            limit: LIMIT
           },
-          function (e, items) {
+          function(e, items) {
             if (e) return done(e);
 
             for (var itemIndex in items) {
@@ -456,7 +456,7 @@ describe('func', function () {
             }
 
             //ascending
-            randomItems.sort(function (a, b) {
+            randomItems.sort(function(a, b) {
               return b.item_sort_id - a.item_sort_id;
             });
 
@@ -464,9 +464,9 @@ describe('func', function () {
               base_path + '/*',
               {
                 options: { sort: { 'data.item_sort_id': -1 } },
-                limit: 50,
+                limit: 50
               },
-              function (e, items) {
+              function(e, items) {
                 if (e) return done(e);
 
                 for (var itemIndex in items) {
@@ -488,28 +488,28 @@ describe('func', function () {
     );
   });
 
-  it('tests a bulk insert', function (done) {
+  it('tests a bulk insert', function(done) {
     var bulkItems = [
       {
         data: {
-          test: 1,
-        },
+          test: 1
+        }
       },
       {
         data: {
-          test: 2,
-        },
+          test: 2
+        }
       },
       {
         data: {
-          test: 3,
-        },
+          test: 3
+        }
       },
       {
         data: {
-          test: 4,
-        },
-      },
+          test: 4
+        }
+      }
     ];
 
     serviceInstance.upsert(
@@ -517,7 +517,7 @@ describe('func', function () {
       bulkItems,
       { upsertType: serviceInstance.UPSERT_TYPE.bulk },
       false,
-      function (e, inserted) {
+      function(e, inserted) {
         if (e) return done(e);
 
         expect(inserted.errors).to.be(false);
@@ -532,34 +532,34 @@ describe('func', function () {
     );
   });
 
-  it('tests a bulk insert with a timestamp', function (done) {
+  it('tests a bulk insert with a timestamp', function(done) {
     var date = new Date().getTime() - 60000;
 
     var bulkItems = [
       {
         data: {
           test: 1,
-          timestamp: date,
-        },
+          timestamp: date
+        }
       },
       {
         data: {
           test: 2,
-          timestamp: date,
-        },
+          timestamp: date
+        }
       },
       {
         data: {
-          test: 3,
-        },
+          test: 3
+        }
       },
       {
         data: {
-          test: 4,
-        },
-      },
+          test: 4
+        }
+      }
     ];
-    serviceInstance.remove('/bulk/test/*', function (e) {
+    serviceInstance.remove('/bulk/test/*', function(e) {
       if (e) return done(e);
 
       serviceInstance.upsert(
@@ -567,7 +567,7 @@ describe('func', function () {
         bulkItems,
         { upsertType: serviceInstance.UPSERT_TYPE.bulk },
         false,
-        function (e, inserted) {
+        function(e, inserted) {
           if (e) return done(e);
 
           expect(inserted.errors).to.be(false);
@@ -577,12 +577,12 @@ describe('func', function () {
           for (var i = 0; i < inserted.items.length; i++)
             expect(inserted.items[i].index.result).to.be('created');
 
-          serviceInstance.find('/bulk/test/*', {}, function (err, items) {
+          serviceInstance.find('/bulk/test/*', {}, function(err, items) {
             if (err) return done(err);
 
             expect(items.length).to.be(4);
 
-            items.forEach(function (item) {
+            items.forEach(function(item) {
               if (item.data.timestamp) expect(item.timestamp).to.be(item.data.timestamp);
             });
 
@@ -593,7 +593,7 @@ describe('func', function () {
     });
   });
 
-  it('tests a bulk fail due to too many items', function (done) {
+  it('tests a bulk fail due to too many items', function(done) {
     var bulkItems = [];
 
     for (var i = 0; i < 1001; i++) bulkItems.push({ test: i.toString() });
@@ -603,7 +603,7 @@ describe('func', function () {
       bulkItems,
       { upsertType: serviceInstance.UPSERT_TYPE.bulk },
       false,
-      function (e) {
+      function(e) {
         expect(e.toString()).to.be('Error: bulk batches can only be 1000 entries or less');
 
         done();
@@ -611,13 +611,13 @@ describe('func', function () {
     );
   });
 
-  it('count works with happner-datastore style parameter', function (done) {
+  it('count works with happner-datastore style parameter', function(done) {
     const dataItem = [
       { data: { test: 'data1' } },
       { data: { test: 'data1' } },
       { data: { test: 'data1' } },
       { data: { test: 'data2' } },
-      { data: { test: 'data2' } },
+      { data: { test: 'data2' } }
     ];
 
     let insertCount = 0;
@@ -634,7 +634,7 @@ describe('func', function () {
     }
 
     for (let i = 0; i < dataItem.length; ++i) {
-      serviceInstance.upsert(`/countTest/num${i}`, dataItem[i], {}, false, (err) => {
+      serviceInstance.upsert(`/countTest/num${i}`, dataItem[i], {}, false, err => {
         if (err) return done(err);
         insertCount++;
         if (insertCount === dataItem.length) {
@@ -644,13 +644,13 @@ describe('func', function () {
     }
   });
 
-  it('find ', function (done) {
+  it('find ', function(done) {
     const dataItem = [
       { data: { test: 'data1' } },
       { data: { test: 'data1' } },
       { data: { test: 'data1' } },
       { data: { test: 'data2' } },
-      { data: { test: 'data2' } },
+      { data: { test: 'data2' } }
     ];
 
     let insertCount = 0;
@@ -661,11 +661,11 @@ describe('func', function () {
           constant_score: {
             filter: {
               query_string: {
-                query: [{ path: '/findTest/num1' }],
-              },
-            },
-          },
-        },
+                query: [{ path: '/findTest/num1' }]
+              }
+            }
+          }
+        }
       };
 
       serviceInstance.find('/findTest/num1', body, (err, data) => {
@@ -676,7 +676,7 @@ describe('func', function () {
     }
 
     for (let i = 0; i < dataItem.length; ++i) {
-      serviceInstance.upsert(`/findTest/num${i}`, dataItem[i], {}, false, (err) => {
+      serviceInstance.upsert(`/findTest/num${i}`, dataItem[i], {}, false, err => {
         if (err) return done(err);
         insertCount++;
         if (insertCount === dataItem.length) {
@@ -686,7 +686,7 @@ describe('func', function () {
     }
   });
 
-  it('Criteria Conversion - Embedded Document   ', function (done) {
+  it('Criteria Conversion - Embedded Document   ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -694,28 +694,28 @@ describe('func', function () {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: 'twigLeaf' },
-        },
-      },
+          branch2: { twig: 'twigLeaf' }
+        }
+      }
     };
     let dataItemNotAdded = {
       data: {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: 'twigLeafNotAdded' },
-        },
-      },
+          branch2: { twig: 'twigLeafNotAdded' }
+        }
+      }
     };
 
     AddSearchDelete('/criteriaConversion', dataItemAdded, dataItemAdded, dataItemNotAdded)
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator eq  ', function (done) {
+  it('Criteria Conversion - Mongo Operator eq  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -723,29 +723,29 @@ describe('func', function () {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: 'twigLeaf' },
-        },
-      },
+          branch2: { twig: 'twigLeaf' }
+        }
+      }
     };
     let filterItemCorrect = {
       data: {
-        trunk: { $eq: 'trunkLeaf' },
-      },
+        trunk: { $eq: 'trunkLeaf' }
+      }
     };
     let filterItemIncorect = {
       data: {
-        trunk: { $eq: 'trunk' },
-      },
+        trunk: { $eq: 'trunk' }
+      }
     };
 
     AddSearchDelete('/criteriaConversionEq', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator gt  ', function (done) {
+  it('Criteria Conversion - Mongo Operator gt  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -753,33 +753,33 @@ describe('func', function () {
         trunk: 5,
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
       data: {
-        trunk: { $gt: 4 },
-      },
+        trunk: { $gt: 4 }
+      }
     };
     let filterItemCorrect2 = {
       data: {
-        trunk: { $gte: 5 },
-      },
+        trunk: { $gte: 5 }
+      }
     };
     let filterItemIncorect = {
       data: {
-        trunk: { $gt: 5 },
-      },
+        trunk: { $gt: 5 }
+      }
     };
     let filterItemIncorect2 = {
       data: {
-        trunk: { $gte: 6 },
-      },
+        trunk: { $gte: 6 }
+      }
     };
 
     AddSearchDelete('/criteriaConversionsEq', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsEqe',
           dataItemAdded,
@@ -787,13 +787,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator lt  ', function (done) {
+  it('Criteria Conversion - Mongo Operator lt  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -801,33 +801,33 @@ describe('func', function () {
         trunk: 5,
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
       data: {
-        trunk: { $lt: 6 },
-      },
+        trunk: { $lt: 6 }
+      }
     };
     let filterItemCorrect2 = {
       data: {
-        trunk: { $lte: 5 },
-      },
+        trunk: { $lte: 5 }
+      }
     };
     let filterItemIncorect = {
       data: {
-        trunk: { $lt: 5 },
-      },
+        trunk: { $lt: 5 }
+      }
     };
     let filterItemIncorect2 = {
       data: {
-        trunk: { $lte: 4 },
-      },
+        trunk: { $lte: 4 }
+      }
     };
 
     AddSearchDelete('/criteriaConversionsLt', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsLte',
           dataItemAdded,
@@ -835,13 +835,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator in  ', function (done) {
+  it('Criteria Conversion - Mongo Operator in  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -849,38 +849,38 @@ describe('func', function () {
         trunk: 'hello',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
       data: {
-        trunk: { $in: ['goodbye', 'hello'] },
-      },
+        trunk: { $in: ['goodbye', 'hello'] }
+      }
     };
     let filterItemCorrect2 = {
       data: {
         trunk: 'hello',
         trunk2: {
           branch1: { $in: ['branchLeaf', 'test'] },
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
 
     let filterItemIncorect = {
       data: {
-        trunk: { $in: ['Wrong'] },
-      },
+        trunk: { $in: ['Wrong'] }
+      }
     };
     let filterItemIncorect2 = {
       data: {
-        trunk: { $in: ['Wrong', 'VeryWorng', 'hell'] },
-      },
+        trunk: { $in: ['Wrong', 'VeryWorng', 'hell'] }
+      }
     };
 
     AddSearchDelete('/criteriaConversionsIn', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -888,13 +888,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator ne  ', function (done) {
+  it('Criteria Conversion - Mongo Operator ne  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -902,40 +902,40 @@ describe('func', function () {
         trunk: 'hello',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
       data: {
-        trunk: { $ne: 'goodbye' },
-      },
+        trunk: { $ne: 'goodbye' }
+      }
     };
     let filterItemCorrect2 = {
       data: {
         trunk: 'hello',
         trunk2: {
           branch1: { $ne: 'NotbranchLeaf' },
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
 
     let filterItemIncorect = {
       data: {
-        trunk: { $ne: 'hello' },
-      },
+        trunk: { $ne: 'hello' }
+      }
     };
     let filterItemIncorect2 = {
       data: {
         trunk2: {
-          branch1: { $ne: 'branchLeaf' },
-        },
-      },
+          branch1: { $ne: 'branchLeaf' }
+        }
+      }
     };
 
     AddSearchDelete('/criteriaConversionsNe', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsNe',
           dataItemAdded,
@@ -943,13 +943,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator And  ', function (done) {
+  it('Criteria Conversion - Mongo Operator And  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -957,30 +957,30 @@ describe('func', function () {
         trunk: 'hello',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
-      $and: [{ 'data.trunk': 'hello' }, { 'data.trunk2.branch1': 'branchLeaf' }],
+      $and: [{ 'data.trunk': 'hello' }, { 'data.trunk2.branch1': 'branchLeaf' }]
     };
     let filterItemCorrect2 = {
-      $and: [{ 'data.trunk': 'hello' }],
+      $and: [{ 'data.trunk': 'hello' }]
     };
 
     let filterItemIncorect = {
       $and: [
         { 'data.trunk': 'hello' },
         { 'data.trunk2.branch1': 'branchLeaf' },
-        { 'data.trunk2.branch2': 'branchLeaf' },
-      ],
+        { 'data.trunk2.branch2': 'branchLeaf' }
+      ]
     };
     let filterItemIncorect2 = {
-      $and: [{ 'data.trunk': 'hell' }],
+      $and: [{ 'data.trunk': 'hell' }]
     };
 
     AddSearchDelete('/criteriaConversionsAnd', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsAnd',
           dataItemAdded,
@@ -988,13 +988,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator OR  ', function (done) {
+  it('Criteria Conversion - Mongo Operator OR  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -1002,34 +1002,34 @@ describe('func', function () {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
-      $or: [{ 'data.trunk': 'trunkLeaf' }, { 'data.trunk': 'incorrectValue' }],
+      $or: [{ 'data.trunk': 'trunkLeaf' }, { 'data.trunk': 'incorrectValue' }]
     };
     let filterItemCorrect2 = {
-      $or: [{ 'data.trunk': 'incorrectValue' }, { 'data.trunk2.branch2': { twig: '5' } }],
+      $or: [{ 'data.trunk': 'incorrectValue' }, { 'data.trunk2.branch2': { twig: '5' } }]
     };
 
     let filterItemIncorect = {
       $or: [
         { 'data.trunk': 'IncorrectValue' },
         { 'data.trunk2.branch1': 'branchL' },
-        { 'data.trunk2.branch2': 'branchLeaf' },
-      ],
+        { 'data.trunk2.branch2': 'branchLeaf' }
+      ]
     };
     let filterItemIncorect2 = {
       $or: [
         { 'data.trunk': 'IncorrectValue' },
         { 'data.trunk2': { branch1: 'branchL' } },
-        { 'data.trunk2': { branch2: 'branchLeaf' } },
-      ],
+        { 'data.trunk2': { branch2: 'branchLeaf' } }
+      ]
     };
 
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -1037,13 +1037,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - Mongo Operator NOR  ', function (done) {
+  it('Criteria Conversion - Mongo Operator NOR  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -1051,26 +1051,26 @@ describe('func', function () {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let filterItemCorrect = {
-      $nor: [{ 'data.trunk': 'trunkLeaz' }, { 'data.trunk2.branch2.twig': '4' }],
+      $nor: [{ 'data.trunk': 'trunkLeaz' }, { 'data.trunk2.branch2.twig': '4' }]
     };
     let filterItemCorrect2 = {
-      $nor: [{ 'data.trunk2.branch2.twig': '6' }, { 'data.trunk2.branch2': { twig: '4' } }],
+      $nor: [{ 'data.trunk2.branch2.twig': '6' }, { 'data.trunk2.branch2': { twig: '4' } }]
     };
 
     let filterItemIncorect = {
-      $nor: [{ 'data.trunk': 'trunkLeaf' }, { 'data.trunk2.branch2.twig': '5' }],
+      $nor: [{ 'data.trunk': 'trunkLeaf' }, { 'data.trunk2.branch2.twig': '5' }]
     };
     let filterItemIncorect2 = {
-      $nor: [{ 'data.trunk': 't' }, { 'data.trunk2.branch2': { twig: '5' } }],
+      $nor: [{ 'data.trunk': 't' }, { 'data.trunk2.branch2': { twig: '5' } }]
     };
 
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(data => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -1078,13 +1078,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(data => {
         done();
       })
       .catch(done);
   });
 
-  it('Criteria Conversion - unsupported opperator  ', function (done) {
+  it('Criteria Conversion - unsupported opperator  ', function(done) {
     let testIdNew = require('shortid').generate();
 
     let dataItemAdded = {
@@ -1092,9 +1092,9 @@ describe('func', function () {
         trunk: 'trunkLeaf',
         trunk2: {
           branch1: 'branchLeaf',
-          branch2: { twig: '5' },
-        },
-      },
+          branch2: { twig: '5' }
+        }
+      }
     };
     let invalidfilter = {
       loc: {
@@ -1106,19 +1106,19 @@ describe('func', function () {
                 [0, 0],
                 [3, 6],
                 [6, 1],
-                [0, 0],
-              ],
-            ],
-          },
-        },
-      },
+                [0, 0]
+              ]
+            ]
+          }
+        }
+      }
     };
 
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, invalidfilter, {})
-      .then((data) => {
+      .then(data => {
         done(data);
       })
-      .catch((e) => {
+      .catch(e => {
         expect(e.message).to.be("unkown or unsuported MongoOperator '$geoIntersects'");
         done();
       });
