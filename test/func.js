@@ -1,7 +1,6 @@
 const util = require('util');
 const shortId = require('shortid');
 
-const MongoToElastic = require('../lib/mongo-to-elastic');
 describe('func', function () {
   this.timeout(5000);
 
@@ -62,7 +61,8 @@ describe('func', function () {
           serviceInstance.find(`${path}/*`, { criteria: IncorrectSearchCriteria }, (err, data) => {
             if (err || !data) return reject(err);
             expect(data.length).to.be(0);
-            serviceInstance.remove(pathNew, (err, dataRemove) => {
+            serviceInstance.remove(pathNew, (err) => {
+              if (err) return reject(err);
               resolve({ valid: valid > -1, data: data });
             });
           });
@@ -153,7 +153,7 @@ describe('func', function () {
       { data: { test: 'data' } },
       {},
       false,
-      function (e, response) {
+      function (e) {
         if (e) return callback(e);
 
         serviceInstance.upsert(
@@ -161,7 +161,7 @@ describe('func', function () {
           { data: { test: 'data' } },
           {},
           false,
-          function (e, response) {
+          function (e) {
             if (e) return callback(e);
 
             setTimeout(function () {
@@ -185,8 +185,7 @@ describe('func', function () {
 
   it('removes data', function (callback) {
     serviceInstance.upsert('/remove/' + testId, { data: { test: 'data' } }, {}, false, function (
-      e,
-      response
+      e
     ) {
       if (e) return callback(e);
 
@@ -207,7 +206,7 @@ describe('func', function () {
       { data: { test: 'data' } },
       {},
       false,
-      function (e, response) {
+      function (e) {
         if (e) return callback(e);
 
         serviceInstance.upsert(
@@ -215,7 +214,7 @@ describe('func', function () {
           { data: { test: 'data' } },
           {},
           false,
-          function (e, response) {
+          function (e) {
             if (e) return callback(e);
 
             serviceInstance.remove('/remove/multiple/*', function (e, response) {
@@ -273,8 +272,8 @@ describe('func', function () {
       { data: complex_obj },
       {},
       false,
-      function (e, put_result) {
-        expect(e == null).to.be(true);
+      function (e) {
+        expect(e === null).to.be(true);
 
         serviceInstance.upsert(
           '/1_eventemitter_embedded_sanity/' +
@@ -285,8 +284,8 @@ describe('func', function () {
           { data: complex_obj },
           {},
           false,
-          function (e, put_result) {
-            expect(e == null).to.be(true);
+          function (e) {
+            expect(e === null).to.be(true);
 
             serviceInstance.upsert(
               '/1_eventemitter_embedded_sanity/' +
@@ -297,8 +296,8 @@ describe('func', function () {
               { data: { test: 'data' } },
               {},
               false,
-              function (e, put_result) {
-                expect(e == null).to.be(true);
+              function (e) {
+                expect(e === null).to.be(true);
 
                 setTimeout(function () {
                   serviceInstance.find(
@@ -310,7 +309,7 @@ describe('func', function () {
                     function (e, search_result) {
                       if (e) return callback(e);
 
-                      expect(search_result.length == 1).to.be(true);
+                      expect(search_result.length === 1).to.be(true);
 
                       serviceInstance.find(
                         '/1_eventemitter_embedded_sanity/' +
@@ -323,7 +322,7 @@ describe('func', function () {
                         function (e, search_result) {
                           if (e) return callback(e);
 
-                          expect(search_result.length == 2).to.be(true);
+                          expect(search_result.length === 2).to.be(true);
 
                           callback(e);
                         }
@@ -361,8 +360,7 @@ describe('func', function () {
     };
 
     serviceInstance.upsert('/not_get/' + testId + '/ok/1', { data: test_obj }, {}, false, function (
-      e,
-      response
+      e
     ) {
       if (e) return done(e);
 
@@ -371,7 +369,7 @@ describe('func', function () {
         { data: test_obj1 },
         {},
         false,
-        function (e, response2) {
+        function (e) {
           if (e) return done(e);
 
           var listCriteria = { criteria: { $not: {} } };
@@ -382,9 +380,9 @@ describe('func', function () {
             e,
             search_result
           ) {
-            expect(e == null).to.be(true);
+            expect(e === null).to.be(true);
 
-            expect(search_result.length == 1).to.be(true);
+            expect(search_result.length === 1).to.be(true);
 
             done();
           });
@@ -451,7 +449,7 @@ describe('func', function () {
 
               var item_from_array = randomItems[itemIndex];
 
-              if (item_from_elastic.data.item_sort_id != item_from_array.item_sort_id)
+              if (item_from_elastic.data.item_sort_id !== item_from_array.item_sort_id)
                 return done(new Error('ascending sort failed'));
             }
 
@@ -475,7 +473,7 @@ describe('func', function () {
                   var item_from_mongo = items[itemIndex];
                   var item_from_array = randomItems[itemIndex];
 
-                  if (item_from_mongo.data.item_sort_id != item_from_array.item_sort_id)
+                  if (item_from_mongo.data.item_sort_id !== item_from_array.item_sort_id)
                     return done(new Error('descending sort failed'));
                 }
 
@@ -687,8 +685,6 @@ describe('func', function () {
   });
 
   it('Criteria Conversion - Embedded Document   ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'trunkLeaf',
@@ -709,15 +705,13 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversion', dataItemAdded, dataItemAdded, dataItemNotAdded)
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator eq  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'trunkLeaf',
@@ -739,15 +733,13 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionEq', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator gt  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 5,
@@ -779,7 +771,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsEq', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsEqe',
           dataItemAdded,
@@ -787,15 +779,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator lt  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 5,
@@ -827,7 +817,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsLt', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsLte',
           dataItemAdded,
@@ -835,15 +825,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator in  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'hello',
@@ -880,7 +868,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsIn', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -888,15 +876,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator ne  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'hello',
@@ -935,7 +921,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsNe', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsNe',
           dataItemAdded,
@@ -943,15 +929,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator And  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'hello',
@@ -980,7 +964,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsAnd', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsAnd',
           dataItemAdded,
@@ -988,15 +972,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator OR  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'trunkLeaf',
@@ -1029,7 +1011,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -1037,15 +1019,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - Mongo Operator NOR  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'trunkLeaf',
@@ -1070,7 +1050,7 @@ describe('func', function () {
     };
 
     AddSearchDelete('/criteriaConversionsOr', dataItemAdded, filterItemCorrect, filterItemIncorect)
-      .then((data) => {
+      .then(() => {
         return AddSearchDelete(
           '/criteriaConversionsIn',
           dataItemAdded,
@@ -1078,15 +1058,13 @@ describe('func', function () {
           filterItemIncorect2
         );
       })
-      .then((data) => {
+      .then(() => {
         done();
       })
       .catch(done);
   });
 
   it('Criteria Conversion - unsupported opperator  ', function (done) {
-    let testIdNew = require('shortid').generate();
-
     let dataItemAdded = {
       data: {
         trunk: 'trunkLeaf',
