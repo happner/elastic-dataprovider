@@ -27,8 +27,7 @@ install:
   # most things should take less than 2 mins
   - ROBUST_CMD="$TIMEOUT_CMD 120"
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then $ROBUST_CMD sudo apt-get update; fi
-  # libs for running PE
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then $ROBUST_CMD sudo apt-get install -y lib32z1 lib32ncurses5 -y; fi
+
   # install this repo's deps
   - $ROBUST_CMD npm ci
 

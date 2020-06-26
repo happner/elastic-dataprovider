@@ -8,7 +8,7 @@
     "lint": "eslint '**/*.js'",
     "lint-fix": "eslint '**/*.js' --fix",
     "report": "nyc report --reporter=text --reporter=lcov --reporter=text-summary && nyc report --reporter=text --reporter=text-summary > coverage.txt",
-    "test": "npm run lint && mocha",
+    "test": "mocha",
     "test-cover": "env LOG_LEVEL=off nyc --reporter=none mocha",
     "test-perf": "mocha test/perf.js"
   },
