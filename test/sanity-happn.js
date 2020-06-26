@@ -10,7 +10,7 @@ describe('sanity-happn', function () {
 
   var path = require('path');
 
-  this.timeout(5000);
+  this.timeout(10000);
 
   var db_path = path.resolve(__dirname.replace('test',''))  + path.sep + 'index.js';
 
