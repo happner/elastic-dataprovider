@@ -39,7 +39,7 @@ script:
   #- npm run lint
 
   # first test against locked dependencies
-  - npm run coveralls
+  - npm test
 
   # test against the latest dependencies
   - rm -f package-lock.json
