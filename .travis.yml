@@ -1,55 +1,14 @@
-os:
-  - linux
-# - osx
-# OSX tests are disabled by default. They should be enabled for all packages related to:
-# - SMC Toolchain
-# - PE, AE Core App and SMC SDK
-
 language: node_js
 node_js:
-  # please delete node_js versions that are no longer used in production
-  # always test against next stable (preferred) or unstable version
-  - '12'
-  - '14'
-
-branches:
-  only:
-    - master
-
+  - "10"
+  - "11"
+  - "12"
 before_install:
   - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.5.1.deb && sudo service elasticsearch restart
-
+env:
+  - NODE_TLS_REJECT_UNAUTHORIZED=0
 services:
   - redis-server
-
-install:
-  # make a robust command that times out and retries
-  - sudo sh -c "curl https://raw.githubusercontent.com/FieldServer/bash-utils/master/timeout -o /usr/local/bin/timeout && chmod +x /usr/local/bin/timeout"
-  # travis_retry has 3 retries, so we apply it to itself to get 9
-  - TIMEOUT_CMD="travis_retry travis_retry /usr/local/bin/timeout"
-  # most things should take less than 2 mins
-  - ROBUST_CMD="$TIMEOUT_CMD 120"
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then $ROBUST_CMD sudo apt-get update; fi
-  # libs for running PE
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then $ROBUST_CMD sudo apt-get install -y lib32z1 lib32ncurses5 -y; fi
-  # install this repo's deps
-  - $ROBUST_CMD npm ci
-
-script:
-  - npm --version
-  # for packages, display npm ls issues for information only
-  - npm ls > /dev/null || true
-
-
-  - npm run lint
-
-  # first test against locked dependencies
-  - npm run coveralls
-
-  # test against the latest dependencies
-  - rm -f package-lock.json
-  - git clean -xfd
-  - $ROBUST_CMD npm i
-  - npm test
+script: "npm test"
 before_script:
   - sleep 10
