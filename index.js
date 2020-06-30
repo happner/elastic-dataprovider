@@ -5,7 +5,7 @@ const Comedian = require('co-median');
 const Cache = require('redis-lru-cache');
 const hyperid = require('happner-hyperid').create({ urlSafe: true });
 const micromustache = require('micromustache');
-const sift = require('sift')
+const sift = require('sift');
 
 function ElasticProvider(config) {
   if (config.cache) {
@@ -287,20 +287,56 @@ function __insert(path, setData, options, route, timestamp, modifiedOn, callback
 function __bulk(path, setData, options, callback) {
   const _this = this;
 
-  // [start:{"key":"__bulk", "self":"_this", "error":"e"}:start]
+  let bulkData = setData;
 
-  _this
-    .__createBulkMessage(path, setData, options)
+  // coming in from happn, not an object but a raw [] so assigned to data.value
+  if (setData.data && setData.data.value) bulkData = setData.data.value;
+  if (bulkData.length > 100000)
+    throw new Error(`bulk batches can only be 100000 entries or less ammount ${bulkData.length}`);
 
-    .then(function(bulkMessage) {
-      return _this.__pushElasticMessage('bulk', bulkMessage);
-    })
+  const bulkDataToPush = [];
 
-    .then(function(response) {
-      callback(null, response, null, true, response);
-    })
+  __chunkBulkMessage(bulkData, bulkDataToPush);
 
-    .catch(callback);
+  const repsonseOb = {
+    took: 0,
+    errors: false,
+    items: []
+  };
+
+  async.eachSeries(
+    bulkDataToPush,
+    (bulkItem, bulkItemCB) => {
+      _this
+        .__createBulkMessage(path, bulkItem, options, setData)
+        .then(function(bulkMessage) {
+          return _this.__pushElasticMessage('bulk', bulkMessage);
+        })
+        .then(function(response) {
+          repsonseOb.took += response.took;
+          if (response.errors) debugger;
+          repsonseOb.errors = repsonseOb.errors || response.errors;
+          repsonseOb.items.push(...response.items);
+          bulkItemCB();
+        })
+        .catch(bulkItemCB);
+    },
+    (err, reponse, something, somethingTrue, repsonse) => {
+      if (err) return callback(err);
+      callback(null, repsonseOb, null, true, repsonseOb);
+    }
+  );
+
+}
+function __chunkBulkMessage(bulkData, returArr = [], chunkAmount = 1000) {
+  if (bulkData.length === 0) return;
+
+  if (bulkData.length <= chunkAmount) {
+    returArr.push(bulkData);
+    return;
+  }
+  returArr.push(bulkData.splice(0, chunkAmount));
+  return __chunkBulkMessage(bulkData, returArr);
 }
 
 function __createBulkMessage(path, setData, options) {
@@ -309,24 +345,19 @@ function __createBulkMessage(path, setData, options) {
   // [start:{"key":"__createBulkMessage", "self":"_this", "error":"e"}:start]
 
   return new Promise(function(resolve, reject) {
-    let bulkData = setData;
-
-    // coming in from happn, not an object but a raw [] so assigned to data.value
-    if (setData.data && setData.data.value) bulkData = setData.data.value;
-
-    if (bulkData.length > 1000) throw new Error('bulk batches can only be 1000 entries or less');
-
     const bulkMessage = { body: [], refresh: options.refresh, _source: true };
 
     const modifiedOn = Date.now();
 
     async.eachSeries(
-      bulkData,
+      setData,
       function(bulkItem, bulkItemCB) {
         let route;
 
         if (bulkItem.path) route = _this.__getRoute(bulkItem.path, bulkItem.data);
         else route = _this.__getRoute(path, bulkItem.data);
+        let timestamp = modifiedOn;
+        if (bulkItem.data && bulkItem.data.timestamp) timestamp = bulkItem.data.timestamp;
 
         _this
           .__ensureDynamic(route) // upserting so we need to make sure our index exists
@@ -343,7 +374,7 @@ function __createBulkMessage(path, setData, options) {
             bulkMessage.body.push({
               created: modifiedOn,
               modified: modifiedOn,
-              timestamp: bulkItem.data.timestamp || modifiedOn,
+              timestamp: timestamp,
               path: route.path,
               data: bulkItem.data,
               modifiedBy: options.modifiedBy,
@@ -580,7 +611,6 @@ function findOne(criteria, fields, callback) {
 function count(pathOrMessage, parametersOrCallBack, callback) {
   const _this = this;
   let countMessage = {};
-
 
   if (typeof pathOrMessage === 'string') {
     const searchPath = _this.preparePath(pathOrMessage);

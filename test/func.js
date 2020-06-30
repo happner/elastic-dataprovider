@@ -592,11 +592,29 @@ describe('func', function() {
       );
     });
   });
+  it('tests a bulk with more than 1000 succeeds', function(done) {
+    var bulkItems = [];
+
+    for (var i = 0; i < 9999; i++) bulkItems.push({ test: i.toString() });
+
+    serviceInstance.upsert(
+      '/bulk/test/{id}',
+      bulkItems,
+      { upsertType: serviceInstance.UPSERT_TYPE.bulk },
+      false,
+      function(e, items) {
+        if (e) return done(e);
+        expect(items.items.length).to.be(9999);
+
+        done();
+      }
+    );
+  });
 
   it('tests a bulk fail due to too many items', function(done) {
     var bulkItems = [];
 
-    for (var i = 0; i < 1001; i++) bulkItems.push({ test: i.toString() });
+    for (var i = 0; i < 100001; i++) bulkItems.push({ test: i.toString() });
 
     serviceInstance.upsert(
       '/bulk/test/{id}',
@@ -604,7 +622,9 @@ describe('func', function() {
       { upsertType: serviceInstance.UPSERT_TYPE.bulk },
       false,
       function(e) {
-        expect(e.toString()).to.be('Error: bulk batches can only be 1000 entries or less');
+        expect(e.toString()).to.be(
+          'Error: bulk batches can only be 100000 entries or less ammount 100001'
+        );
 
         done();
       }
