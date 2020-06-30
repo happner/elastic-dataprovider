@@ -22,6 +22,11 @@ function ElasticProvider(config) {
 
   if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 20;
 
+  if (!config.bulkBachSizes) config.bulkBachSizes  = 1000;
+
+  if (!config.bulkMaxSize) config.bulkMaxSize  = 100000;
+
+
   Object.defineProperty(this, '__config', { value: config });
 
   Object.defineProperty(this, '__dynamicRoutes', { value: {} });
@@ -289,14 +294,16 @@ function __bulk(path, setData, options, callback) {
 
   let bulkData = setData;
 
+
+
   // coming in from happn, not an object but a raw [] so assigned to data.value
   if (setData.data && setData.data.value) bulkData = setData.data.value;
-  if (bulkData.length > 100000)
-    throw new Error(`bulk batches can only be 100000 entries or less ammount ${bulkData.length}`);
+  if (bulkData.length > _this.__config.bulkMaxSize)
+    throw new Error(`bulk batches can only be ${_this.__config.bulkMaxSize} entries or less ammount ${bulkData.length}`);
 
   const bulkDataToPush = [];
 
-  __chunkBulkMessage(bulkData, bulkDataToPush);
+  __chunkBulkMessage(bulkData, bulkDataToPush,  _this.__config.bulkBachSizes);
 
   const repsonseOb = {
     took: 0,
