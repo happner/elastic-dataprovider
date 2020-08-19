@@ -3,16 +3,16 @@ module.exports = {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   },
   string: function(options) {
-    if (options === null) options = {};
+    if (options == null) options = {};
 
-    if (options.length === null) options.length = 20;
+    if (options.length == null) options.length = 20;
 
     var loopCount = options.length / 10 + 2;
 
     var createString = function() {
       var str = '';
 
-      for (let i = 0; i < loopCount; i++) {
+      for (var i = 0; i < loopCount; i++) {
         str += require('shortid').generate();
       }
 
@@ -22,23 +22,23 @@ module.exports = {
     if (options.count) {
       var stringArr = [];
 
-      for (let i = 0; i < options.count; i++) stringArr.push(createString());
+      for (var i = 0; i < options.count; i++) stringArr.push(createString());
 
       return stringArr;
     } else return createString();
   },
   randomPaths: function(options) {
-    if (options === null) options = {};
+    if (options == null) options = {};
 
-    if (options.count === null) options.count = 10;
+    if (options.count == null) options.count = 10;
 
-    if (options.maxSegments === null) options.maxSegments = 3;
+    if (options.maxSegments == null) options.maxSegments = 3;
 
-    if (options.segmentDelimiter === null) options.segmentDelimiter = '/';
+    if (options.segmentDelimiter == null) options.segmentDelimiter = '/';
 
     var paths = [];
 
-    for (let itemCount = 0; itemCount < options.count; itemCount++) {
+    for (var itemCount = 0; itemCount < options.count; itemCount++) {
       var maxSegments = this.integer(1, options.maxSegments);
       var segments = [];
 

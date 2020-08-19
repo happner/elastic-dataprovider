@@ -82,8 +82,8 @@ describe('sanity-happn', function() {
               '1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/' + test_path_end,
               null,
               function(e, results) {
-                expect(results.property1 === 'property1').to.be(true);
-                expect(results.created === results.modified).to.be(true);
+                expect(results.property1 == 'property1').to.be(true);
+                expect(results.created == results.modified).to.be(true);
 
                 callback(e);
               }
@@ -201,7 +201,7 @@ describe('sanity-happn', function() {
                */
 
               expect(result.property1).to.be('property1');
-              expect(result._meta.path.indexOf(testBasePath) === 0).to.be(true);
+              expect(result._meta.path.indexOf(testBasePath) == 0).to.be(true);
 
               return true;
             });
@@ -415,7 +415,7 @@ describe('sanity-happn', function() {
             },
             function(e, updateResult) {
               expect(e).to.be(null);
-              expect(updateResult._meta.id === insertResult._meta.id).to.be(true);
+              expect(updateResult._meta.id == insertResult._meta.id).to.be(true);
               callback();
             }
           );
@@ -469,7 +469,7 @@ describe('sanity-happn', function() {
                   var found = false;
 
                   results.every(function(tagged) {
-                    if (tagged._meta.tag === randomTag) {
+                    if (tagged._meta.tag == randomTag) {
                       expect(tagged.data.property1).to.be('property1');
                       expect(tagged.data.property2).to.be('property2');
                       expect(tagged.data.property3).to.be('property3');
@@ -562,7 +562,9 @@ describe('sanity-happn', function() {
               '1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/' + test_path_end,
               null,
               function(e, results) {
-                expect(results.property1 === 'property1').to.be(true);
+                ////////////////////////console.log('new data results');
+                ////////////////////////console.log(results);
+                expect(results.property1 == 'property1').to.be(true);
                 callback(e);
               }
             );
@@ -587,7 +589,7 @@ describe('sanity-happn', function() {
         },
         null,
         function(e, insertResult) {
-          expect(e === null).to.be(true);
+          expect(e == null).to.be(true);
 
           publisherclient.set(
             '1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/' + test_path_end,
@@ -599,8 +601,8 @@ describe('sanity-happn', function() {
             },
             null,
             function(e, updateResult) {
-              expect(e === null).to.be(true);
-              expect(updateResult._meta._id === insertResult._meta._id).to.be(true);
+              expect(e == null).to.be(true);
+              expect(updateResult._meta._id == insertResult._meta._id).to.be(true);
               callback();
             }
           );
@@ -624,7 +626,7 @@ describe('sanity-happn', function() {
           property2: 'sib_post_property2'
         },
         function(e, results) {
-          expect(e === null).to.be(true);
+          expect(e == null).to.be(true);
 
           publisherclient.setSibling(
             '1_eventemitter_embedded_sanity/' + test_id + '/siblings/' + test_path_end,
@@ -633,15 +635,15 @@ describe('sanity-happn', function() {
               property2: 'sib_post_property2'
             },
             function(e, results) {
-              expect(e === null).to.be(true);
+              expect(e == null).to.be(true);
 
               //the child method returns a child in the collection with a specified id
               publisherclient.get(
                 '1_eventemitter_embedded_sanity/' + test_id + '/siblings/' + test_path_end + '/*',
                 null,
                 function(e, getresults) {
-                  expect(e === null).to.be(true);
-                  expect(getresults.length === 2).to.be(true);
+                  expect(e == null).to.be(true);
+                  expect(getresults.length == 2).to.be(true);
                   callback(e);
                 }
               );
@@ -716,7 +718,7 @@ describe('sanity-happn', function() {
       },
       null,
       function(e, insertResult) {
-        expect(e === null).to.be(true);
+        expect(e == null).to.be(true);
         publisherclient.set(
           '1_eventemitter_embedded_sanity/' + test_id + '/testwildcard/' + test_path_end + '/1',
           {
@@ -726,7 +728,7 @@ describe('sanity-happn', function() {
           },
           null,
           function(e, insertResult) {
-            expect(e === null).to.be(true);
+            expect(e == null).to.be(true);
 
             publisherclient.get(
               '1_eventemitter_embedded_sanity/' + test_id + '/testwildcard/' + test_path_end + '*',
@@ -734,7 +736,7 @@ describe('sanity-happn', function() {
               function(e, results) {
                 if (e) return callback();
 
-                expect(results.length === 2).to.be(true);
+                expect(results.length == 2).to.be(true);
                 callback(e);
               }
             );
@@ -756,7 +758,7 @@ describe('sanity-happn', function() {
       },
       null,
       function(e, insertResult) {
-        expect(e === null).to.be(true);
+        expect(e == null).to.be(true);
         publisherclient.set(
           '1_eventemitter_embedded_sanity/' + test_id + '/testwildcard/' + test_path_end + '/1',
           {
@@ -766,12 +768,12 @@ describe('sanity-happn', function() {
           },
           null,
           function(e, insertResult) {
-            expect(e === null).to.be(true);
+            expect(e == null).to.be(true);
 
             publisherclient.getPaths(
               '1_eventemitter_embedded_sanity/' + test_id + '/testwildcard/' + test_path_end + '*',
               function(e, results) {
-                expect(results.length === 2).to.be(true);
+                expect(results.length == 2).to.be(true);
                 callback(e);
               }
             );
@@ -936,7 +938,7 @@ describe('sanity-happn', function() {
         )
           caughtCount++;
 
-        if (caughtCount === 2) callback();
+        if (caughtCount == 2) callback();
       },
       function(e) {
         if (e) return callback(e);
@@ -1152,7 +1154,7 @@ describe('sanity-happn', function() {
               function(e, search_result) {
                 if (e) return callback(e);
 
-                expect(search_result.length === 1).to.be(true);
+                expect(search_result.length == 1).to.be(true);
 
                 publisherclient.get(
                   '/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*',
@@ -1163,7 +1165,7 @@ describe('sanity-happn', function() {
                   function(e, search_result) {
                     if (e) return callback(e);
 
-                    expect(search_result.length === 2).to.be(true);
+                    expect(search_result.length == 2).to.be(true);
                     callback(e);
                   }
                 );
@@ -1199,7 +1201,7 @@ describe('sanity-happn', function() {
       complex_obj,
       null,
       function(e, put_result) {
-        expect(e === null).to.be(true);
+        expect(e == null).to.be(true);
 
         setTimeout(function() {
           to = Date.now();
@@ -1226,9 +1228,9 @@ describe('sanity-happn', function() {
               options: options
             },
             function(e, search_result) {
-              expect(e === null).to.be(true);
+              expect(e == null).to.be(true);
 
-              if (search_result.length === 0) {
+              if (search_result.length == 0) {
                 return callback(new Error('no items found in the date range'));
               } else {
                 return callback();
@@ -1290,7 +1292,7 @@ describe('sanity-happn', function() {
 
           expect(inserted._meta.items.length).to.be(4);
 
-          for (let i = 0; i < inserted.value.length; i++)
+          for (var i = 0; i < inserted.value.length; i++)
             expect(inserted.value[i].data.indexProperty).to.be(dynamicIndex);
 
           done();

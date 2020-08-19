@@ -22,9 +22,10 @@ function ElasticProvider(config) {
 
   if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 20;
 
-  if (!config.bulkBachSizes) config.bulkBachSizes = 1000;
+  if (!config.bulkBachSizes) config.bulkBachSizes  = 1000;
 
-  if (!config.bulkMaxSize) config.bulkMaxSize = 100000;
+  if (!config.bulkMaxSize) config.bulkMaxSize  = 100000;
+
 
   Object.defineProperty(this, '__config', { value: config });
 
@@ -192,7 +193,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
 
     options.refresh = options.refresh === false || options.refresh === 'false' ? 'false' : 'true'; // true is slow but reliable
 
-    if (options.upsertType === _this.UPSERT_TYPE.bulk) {
+    if (options.upsertType == _this.UPSERT_TYPE.bulk) {
       // dynamic index is generated automatically using "index" in bulk inserts
       return _this.__bulk(path, setData, options, callback);
     }
@@ -201,7 +202,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
 
     const timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
 
-    if (options.upsertType === null) options.upsertType = _this.UPSERT_TYPE.upsert;
+    if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
     const route = _this.__getRoute(path, setData.data);
 
@@ -209,11 +210,11 @@ function upsert(path, setData, options, dataWasMerged, callback) {
       .__ensureDynamic(route) // upserting so we need to make sure our index exists
 
       .then(function() {
-        if (options.retries === null) {
+        if (options.retries == null) {
           options.retries = _this.__config.elasticCallConcurrency + 20;
         } // retry_on_conflict: same size as the max amount of concurrent calls to elastic and some.
 
-        if (options.upsertType === _this.UPSERT_TYPE.insert) {
+        if (options.upsertType == _this.UPSERT_TYPE.insert) {
           return _this.__insert(path, setData, options, route, timestamp, modifiedOn, callback);
         }
 
@@ -293,16 +294,16 @@ function __bulk(path, setData, options, callback) {
 
   let bulkData = setData;
 
+
+
   // coming in from happn, not an object but a raw [] so assigned to data.value
   if (setData.data && setData.data.value) bulkData = setData.data.value;
   if (bulkData.length > _this.__config.bulkMaxSize)
-    throw new Error(
-      `bulk batches can only be ${_this.__config.bulkMaxSize} entries or less ammount ${bulkData.length}`
-    );
+    throw new Error(`bulk batches can only be ${_this.__config.bulkMaxSize} entries or less ammount ${bulkData.length}`);
 
   const bulkDataToPush = [];
 
-  __chunkBulkMessage(bulkData, bulkDataToPush, _this.__config.bulkBachSizes);
+  __chunkBulkMessage(bulkData, bulkDataToPush,  _this.__config.bulkBachSizes);
 
   const repsonseOb = {
     took: 0,
@@ -332,6 +333,7 @@ function __bulk(path, setData, options, callback) {
       callback(null, repsonseOb, null, true, repsonseOb);
     }
   );
+
 }
 function __chunkBulkMessage(bulkData, returArr = [], chunkAmount = 1000) {
   if (bulkData.length === 0) return;
@@ -452,7 +454,7 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
 
       let created = null;
 
-      if (response.result === 'created')
+      if (response.result == 'created')
         created = _this.__partialTransform(response.get, route.index, route.type);
 
       callback(null, data, created, true, _this.__getMeta(response.get._source));
@@ -576,9 +578,9 @@ function find(path, parameters, callback) {
 
   if (parameters.options) mongoToElastic.convertOptions(parameters.options, elasticMessage); // this is because the $not keyword works in nedb and sift, but not in elastic
 
-  if (elasticMessage.body.from === null) elasticMessage.body.from = 0;
+  if (elasticMessage.body.from == null) elasticMessage.body.from = 0;
 
-  if (elasticMessage.body.size === null) elasticMessage.body.size = 10000;
+  if (elasticMessage.body.size == null) elasticMessage.body.size = 10000;
 
   _this
     .__pushElasticMessage('search', elasticMessage)
@@ -765,38 +767,38 @@ function __parseFields(fields) {
 
       if (typeof _thisNode.key === 'string') {
         // ignore directives
-        if (_thisNode.key.indexOf('$') === 0) return;
+        if (_thisNode.key.indexOf('$') == 0) return;
 
-        if (_thisNode.key === '_id') {
+        if (_thisNode.key == '_id') {
           _thisNode.parent.node['_source._id'] = value;
           return _thisNode.remove();
         }
 
-        if (_thisNode.key === 'path' || _thisNode.key === '_meta.path') {
+        if (_thisNode.key == 'path' || _thisNode.key == '_meta.path') {
           _thisNode.parent.node['_source.path'] = value;
           return _thisNode.remove();
         }
 
-        if (_thisNode.key === 'created' || _thisNode.key === '_meta.created') {
+        if (_thisNode.key == 'created' || _thisNode.key == '_meta.created') {
           _thisNode.parent.node['_source.created'] = value;
           return _thisNode.remove();
         }
 
-        if (_thisNode.key === 'modified' || _thisNode.key === '_meta.modified') {
+        if (_thisNode.key == 'modified' || _thisNode.key == '_meta.modified') {
           _thisNode.parent.node['_source.modified'] = value;
           return _thisNode.remove();
         }
 
-        if (_thisNode.key === 'timestamp' || _thisNode.key === '_meta.timestamp') {
+        if (_thisNode.key == 'timestamp' || _thisNode.key == '_meta.timestamp') {
           _thisNode.parent.node['_source.timestamp'] = value;
           return _thisNode.remove();
         }
 
         const propertyKey = _thisNode.key;
 
-        if (propertyKey.indexOf('data.') === 0)
+        if (propertyKey.indexOf('data.') == 0)
           _thisNode.parent.node['_source.' + propertyKey] = value;
-        else if (propertyKey.indexOf('_data.') === 0)
+        else if (propertyKey.indexOf('_data.') == 0)
           _thisNode.parent.node['_source.' + propertyKey] = value;
         // prepend with data.
         else _thisNode.parent.node['_source.data.' + propertyKey] = value;
@@ -840,7 +842,7 @@ function preparePath(path) {
   let lastChar = null;
 
   for (let i = 0; i < path.length; i++) {
-    if (path[i] === '*' && lastChar === '*') continue;
+    if (path[i] == '*' && lastChar == '*') continue;
 
     prepared += path[i];
 
@@ -870,7 +872,7 @@ function setUpCache() {
   _this.__oldFind = _this.find;
 
   _this.find = function(path, parameters, callback) {
-    if (path.indexOf && path.indexOf('*') === -1) {
+    if (path.indexOf && path.indexOf('*') == -1) {
       return _this.cache.get(path, function(e, item) {
         if (e) return callback(e);
 
@@ -879,7 +881,7 @@ function setUpCache() {
         _this.__oldFind(path, parameters, function(e, items) {
           if (e) return callback(e);
 
-          if (!items || items.length === 0) return callback(null, []);
+          if (!items || items.length == 0) return callback(null, []);
 
           _this.cache.set(path, items[0], function(e) {
             return callback(e, items);
@@ -915,7 +917,7 @@ function setUpCache() {
   this.__oldRemove = this.remove;
 
   this.remove = function(path, callback) {
-    if (path.indexOf && path.indexOf('*') === -1) {
+    if (path.indexOf && path.indexOf('*') == -1) {
       // its ok if the actual remove fails, as the cache will refresh
       _this.cache.remove(path, function(e) {
         if (e) return callback(e);
@@ -964,7 +966,7 @@ function __matchRoute(path, pattern) {
 
   let baseTagPath = '/_TAGS';
 
-  if (path.substring(0, 1) !== '/') baseTagPath += '/';
+  if (path.substring(0, 1) != '/') baseTagPath += '/';
 
   return this.__wildcardMatch(baseTagPath + pattern, path);
 }
@@ -989,7 +991,7 @@ function __getRoute(path, obj) {
 
     if (_this.__matchRoute(routePath, pattern)) route = dataStoreRoute;
 
-    return route === null;
+    return route == null;
   });
 
   if (!route) {
@@ -1022,9 +1024,9 @@ function __getDynamicParts(dataStoreRoute, path) {
     const locations = {};
 
     dataStoreRoute.pattern.split('/').every(function(segment, segmentIndex) {
-      if (segment === '{{index}}') locations.index = segmentIndex;
+      if (segment == '{{index}}') locations.index = segmentIndex;
 
-      if (segment === '{{type}}') locations.type = segmentIndex;
+      if (segment == '{{type}}') locations.type = segmentIndex;
 
       return !(locations.index && locations.type);
     });
@@ -1065,7 +1067,7 @@ function __createIndex(indexConfig) {
       .catch(function(e) {
         // [end:{"key":"__createIndex", "self":"_this", "error":"e"}:end]
 
-        if (e && e.toString().indexOf('[index_already_exists_exception]') === -1) {
+        if (e && e.toString().indexOf('[index_already_exists_exception]') == -1) {
           return reject(
             new Error('failed creating index ' + indexConfig.index + ':' + e.toString(), e)
           );
@@ -1081,9 +1083,9 @@ function __buildIndexObj(indexConfig) {
 
   // [start:{"key":"__buildIndexObj", "self":"_this"}:start]
 
-  if (indexConfig.index === null) indexConfig.index = _this.__config.defaultIndex;
+  if (indexConfig.index == null) indexConfig.index = _this.__config.defaultIndex;
 
-  if (indexConfig.type === null) indexConfig.type = _this.__config.defaultType;
+  if (indexConfig.type == null) indexConfig.type = _this.__config.defaultType;
 
   const indexJSON = {
     index: indexConfig.index,
@@ -1117,7 +1119,7 @@ function __buildIndexObj(indexConfig) {
     ) {
       const mappingFieldName = fieldName;
 
-      if (indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] === null) {
+      if (indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] == null) {
         indexJSON.body.mappings[indexConfig.type].properties[mappingFieldName] =
           indexConfig.body.mappings[indexConfig.type].properties[fieldName];
       }
@@ -1152,7 +1154,7 @@ function __createIndexes(callback) {
   async.eachSeries(
     _this.__config.indexes,
     function(index, indexCB) {
-      if (index.index !== _this.defaultIndex) indexJSON = _this.__buildIndexObj(index);
+      if (index.index != _this.defaultIndex) indexJSON = _this.__buildIndexObj(index);
 
       _this
         .__createIndex(indexJSON)
@@ -1169,7 +1171,7 @@ function __createIndexes(callback) {
       let defaultRouteFound = false;
 
       _this.__config.dataroutes.forEach(function(route) {
-        if (route.pattern === '*') defaultRouteFound = true;
+        if (route.pattern == '*') defaultRouteFound = true;
       });
 
       if (!defaultRouteFound)
@@ -1194,7 +1196,7 @@ function __pushElasticMessage(method, message) {
 
 function __executeElasticMessage(elasticCall, callback) {
   try {
-    if (elasticCall.method === 'indices.create')
+    if (elasticCall.method == 'indices.create')
       return this.db.indices.create(elasticCall.message, callback);
 
     this.db[elasticCall.method].call(this.db, elasticCall.message, callback);
