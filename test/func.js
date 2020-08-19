@@ -274,7 +274,7 @@ describe('func', function() {
       {},
       false,
       function(e, put_result) {
-        expect(e == null).to.be(true);
+        expect(e === null).to.be(true);
 
         serviceInstance.upsert(
           '/1_eventemitter_embedded_sanity/' +
@@ -286,7 +286,7 @@ describe('func', function() {
           {},
           false,
           function(e, put_result) {
-            expect(e == null).to.be(true);
+            expect(e === null).to.be(true);
 
             serviceInstance.upsert(
               '/1_eventemitter_embedded_sanity/' +
@@ -298,7 +298,7 @@ describe('func', function() {
               {},
               false,
               function(e, put_result) {
-                expect(e == null).to.be(true);
+                expect(e === null).to.be(true);
 
                 setTimeout(function() {
                   serviceInstance.find(
@@ -310,7 +310,7 @@ describe('func', function() {
                     function(e, search_result) {
                       if (e) return callback(e);
 
-                      expect(search_result.length == 1).to.be(true);
+                      expect(search_result.length === 1).to.be(true);
 
                       serviceInstance.find(
                         '/1_eventemitter_embedded_sanity/' +
@@ -323,7 +323,7 @@ describe('func', function() {
                         function(e, search_result) {
                           if (e) return callback(e);
 
-                          expect(search_result.length == 2).to.be(true);
+                          expect(search_result.length === 2).to.be(true);
 
                           callback(e);
                         }
@@ -382,9 +382,9 @@ describe('func', function() {
             e,
             search_result
           ) {
-            expect(e == null).to.be(true);
+            expect(e === null).to.be(true);
 
-            expect(search_result.length == 1).to.be(true);
+            expect(search_result.length === 1).to.be(true);
 
             done();
           });
@@ -406,7 +406,7 @@ describe('func', function() {
 
     var async = require('async');
 
-    for (var i = 0; i < ITEMS; i++) {
+    for (let i = 0; i < ITEMS; i++) {
       var item = {
         item_sort_id: i + Math.floor(Math.random() * 1000000)
       };
@@ -444,14 +444,14 @@ describe('func', function() {
           function(e, items) {
             if (e) return done(e);
 
-            for (var itemIndex in items) {
+            for (let itemIndex in items) {
               if (itemIndex >= 50) break;
 
               var item_from_elastic = items[itemIndex];
 
               var item_from_array = randomItems[itemIndex];
 
-              if (item_from_elastic.data.item_sort_id != item_from_array.item_sort_id)
+              if (item_from_elastic.data.item_sort_id !== item_from_array.item_sort_id)
                 return done(new Error('ascending sort failed'));
             }
 
@@ -469,13 +469,13 @@ describe('func', function() {
               function(e, items) {
                 if (e) return done(e);
 
-                for (var itemIndex in items) {
+                for (let itemIndex in items) {
                   if (itemIndex >= 50) break;
 
                   var item_from_mongo = items[itemIndex];
                   var item_from_array = randomItems[itemIndex];
 
-                  if (item_from_mongo.data.item_sort_id != item_from_array.item_sort_id)
+                  if (item_from_mongo.data.item_sort_id !== item_from_array.item_sort_id)
                     return done(new Error('descending sort failed'));
                 }
 
@@ -524,7 +524,7 @@ describe('func', function() {
 
         expect(inserted.items.length).to.be(4);
 
-        for (var i = 0; i < inserted.items.length; i++)
+        for (let i = 0; i < inserted.items.length; i++)
           expect(inserted.items[i].index.result).to.be('created');
 
         done();
@@ -574,7 +574,7 @@ describe('func', function() {
 
           expect(inserted.items.length).to.be(4);
 
-          for (var i = 0; i < inserted.items.length; i++)
+          for (let i = 0; i < inserted.items.length; i++)
             expect(inserted.items[i].index.result).to.be('created');
 
           serviceInstance.find('/bulk/test/*', {}, function(err, items) {
@@ -595,7 +595,7 @@ describe('func', function() {
   it('tests a bulk with more than 1000 succeeds', function(done) {
     var bulkItems = [];
 
-    for (var i = 0; i < 9999; i++) bulkItems.push({ test: i.toString() });
+    for (let i = 0; i < 9999; i++) bulkItems.push({ test: i.toString() });
 
     serviceInstance.upsert(
       '/bulk/test/{id}',
@@ -614,7 +614,7 @@ describe('func', function() {
   it('tests a bulk fail due to too many items', function(done) {
     var bulkItems = [];
 
-    for (var i = 0; i < 100001; i++) bulkItems.push({ test: i.toString() });
+    for (let i = 0; i < 100001; i++) bulkItems.push({ test: i.toString() });
 
     serviceInstance.upsert(
       '/bulk/test/{id}',

@@ -153,7 +153,7 @@ describe('func-indexes, with route and data caching', function() {
                   if (e) return done(e);
 
                   defaultItems.forEach(function(item) {
-                    if (item._id == '/default/' + testId) foundItems.push(item);
+                    if (item._id === '/default/' + testId) foundItems.push(item);
                   });
 
                   expect(foundItems.length).to.be(1);
@@ -161,7 +161,7 @@ describe('func-indexes, with route and data caching', function() {
                   foundItems = [];
 
                   customItems.forEach(function(item) {
-                    if (item._id == '/custom/' + testId) foundItems.push(item);
+                    if (item._id === '/custom/' + testId) foundItems.push(item);
                   });
 
                   expect(foundItems.length).to.be(1);
@@ -252,16 +252,16 @@ describe('func-indexes, with route and data caching', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT; i++) {
+      for (let i = 0; i < ROUTE_COUNT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
         var route = '/dynamic/' + index + '/test_type';
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT; i++) {
+      for (let i = 0; i < ROW_COUNT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -310,10 +310,10 @@ describe('func-indexes, with route and data caching', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +

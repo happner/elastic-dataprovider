@@ -244,7 +244,7 @@ describe('sanity-happner', function() {
               function(message, meta) {
                 caughtEmitted++;
 
-                if (caughtEmitted == 2) {
+                if (caughtEmitted === 2) {
                   expect(message.test).to.be('data1');
                   callback();
                 }

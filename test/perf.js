@@ -106,16 +106,16 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT; i++) {
+      for (let i = 0; i < ROUTE_COUNT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
         var route = '/dynamic/' + index + '/test_type_upsert';
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT; i++) {
+      for (let i = 0; i < ROW_COUNT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -180,10 +180,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -224,16 +224,16 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT; i++) {
+      for (let i = 0; i < ROUTE_COUNT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
         var route = '/dynamic/' + index + '/test_type';
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT; i++) {
+      for (let i = 0; i < ROW_COUNT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -298,10 +298,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -346,16 +346,16 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROUTE_COUNT_INSERT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
         var route = '/dynamic/' + index + '/test_type';
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROW_COUNT_INSERT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT_INSERT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -422,10 +422,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -466,7 +466,7 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROUTE_COUNT_INSERT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
 
         var route = '/dynamic/' + index + '/test_type';
@@ -474,10 +474,10 @@ describe('perf', function() {
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROW_COUNT_INSERT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT_INSERT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -545,10 +545,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -589,7 +589,7 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < ROUTE_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROUTE_COUNT_INSERT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
 
         var route = '/non_dynamic/' + index + '/test_type';
@@ -597,10 +597,10 @@ describe('perf', function() {
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT_INSERT; i++) {
+      for (let i = 0; i < ROW_COUNT_INSERT; i++) {
         var routeIndex = random.integer(0, ROUTE_COUNT_INSERT);
 
-        if (routes[routeIndex] != null)
+        if (routes[routeIndex] !== null)
           rows.push(
             routes[routeIndex] +
               '/route_' +
@@ -668,10 +668,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -709,13 +709,13 @@ describe('perf', function() {
     var errors = [];
     var successes = [];
 
-    for (var i = 0; i < 1; i++) {
+    for (let i = 0; i < 1; i++) {
       var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
       var route = '/dynamic/' + index + '/test_type';
       routes.push(route);
     }
 
-    for (var i = 0; i < ROW_COUNT_DIRECT; i++) {
+    for (let i = 0; i < ROW_COUNT_DIRECT; i++) {
       rows.push(routes[0] + '/route_1/' + Date.now().toString() + '/' + i.toString());
     }
 
@@ -779,10 +779,10 @@ describe('perf', function() {
                 serviceInstance.find(successfulRow.row, {}, function(e, data) {
                   if (e) return callbackError(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                  if (data[0].data.test != successfulRow.row)
+                  if (data[0].data.test !== successfulRow.row)
                     return callbackError(
                       new Error(
                         'row test value ' +
@@ -819,13 +819,13 @@ describe('perf', function() {
       var errors = [];
       var successes = [];
 
-      for (var i = 0; i < 1; i++) {
+      for (let i = 0; i < 1; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
         var route = '/dynamic/' + index + '/test_type';
         routes.push(route);
       }
 
-      for (var i = 0; i < ROW_COUNT_DIRECT; i++) {
+      for (let i = 0; i < ROW_COUNT_DIRECT; i++) {
         rows.push(routes[0] + '/route_1/' + Date.now().toString() + '/' + i.toString());
       }
 
@@ -889,10 +889,10 @@ describe('perf', function() {
                   serviceInstance.find(successfulRow.row, {}, function(e, data) {
                     if (e) return callbackError(e);
 
-                    if (data.length == 0)
+                    if (data.length === 0)
                       return callbackError(new Error('missing row for: ' + successfulRow.row));
 
-                    if (data[0].data.test != successfulRow.row)
+                    if (data[0].data.test !== successfulRow.row)
                       return callbackError(
                         new Error(
                           'row test value ' +
@@ -941,7 +941,7 @@ describe('perf', function() {
 
       var bulkData = [];
 
-      for (var i = 0; i < BULK_ROUTE_COUNT; i++) {
+      for (let i = 0; i < BULK_ROUTE_COUNT; i++) {
         var index = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
 
         var type = (uuid.v4() + uuid.v4()).toLowerCase().replace(/\-/g, '');
@@ -949,7 +949,7 @@ describe('perf', function() {
         routes.push({ index: index, type: type });
       }
 
-      for (var i = 0; i < BULK_ROW_COUNT; i++) {
+      for (let i = 0; i < BULK_ROW_COUNT; i++) {
         var routeIndex = random.integer(0, BULK_ROUTE_COUNT - 1);
 
         bulkData.push({
@@ -994,7 +994,7 @@ describe('perf', function() {
                 serviceInstance.find(item.index._id, {}, function(e, data) {
                   if (e) return itemCB(e);
 
-                  if (data.length == 0)
+                  if (data.length === 0)
                     return done(new Error('missing row for: ' + item.index._id));
 
                   itemCB();
@@ -1019,7 +1019,7 @@ describe('perf', function() {
 
       var bulkData = [];
 
-      for (var i = 0; i < BULK_ROW_COUNT; i++) {
+      for (let i = 0; i < BULK_ROW_COUNT; i++) {
         bulkData.push({
           data: { index: 'bulk', type: 'bulk' }
         });
@@ -1066,7 +1066,7 @@ describe('perf', function() {
             ) {
               if (e) return done(e);
 
-              if (data.length != BULK_INSERT_COUNT)
+              if (data.length !== BULK_INSERT_COUNT)
                 return done(
                   new Error('missing rows for: ' + '/dynamic/bulk/bulk/bulk_static' + testId + '*')
                 );
