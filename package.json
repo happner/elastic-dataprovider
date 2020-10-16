@@ -1,24 +1,17 @@
 {
   "name": "happner-elastic-dataprovider",
-  "version": "3.1.2",
+  "version": "4.0.0",
+  "private": false,
   "scripts": {
-    "test": "mocha test",
+    "coverage": "npm run test-cover && npm run report",
+    "coveralls": "npm run test-cover && nyc report --reporter=text-lcov | coveralls",
+    "lint": "eslint '**/*.js'",
+    "lint-fix": "eslint '**/*.js' --fix",
+    "report": "nyc report --reporter=text --reporter=lcov --reporter=text-summary && nyc report --reporter=text --reporter=text-summary > coverage.txt",
+    "test": "mocha",
+    "test-cover": "env LOG_LEVEL=off nyc --reporter=none mocha",
     "test-perf": "mocha test/perf.js"
   },
-  "devDependencies": {
-    "assert": "^1.4.0",
-    "chai": "^3.5.0",
-    "expect.js": "^0.3.1",
-    "gulp": "*",
-    "happn-3": "*",
-    "happner-2": "*",
-    "happner-profane": "^1.0.0",
-    "json-from-schema": "1.10.0",
-    "mocha": "*",
-    "node-uuid": "^1.4.7",
-    "rimraf": "^2.4.4"
-  },
-  "private": false,
   "dependencies": {
     "agentkeepalive": "^3.3.0",
     "async": "1.5.2",
@@ -35,5 +28,24 @@
     "traverse": "0.6.6",
     "underscore": "1.8.3",
     "uuid": "3.1.0"
+  },
+  "devDependencies": {
+    "assert": "^1.4.0",
+    "chai": "^3.5.0",
+    "coveralls": "^3.1.0",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "expect.js": "^0.3.1",
+    "gulp": "*",
+    "happn-3": "*",
+    "happner-2": "*",
+    "happner-profane": "^1.0.0",
+    "json-from-schema": "1.10.0",
+    "mocha": "^7.2.0",
+    "node-uuid": "^1.4.7",
+    "nyc": "^15.1.0",
+    "prettier": "^1.19.1",
+    "rimraf": "^2.7.1"
   }
 }

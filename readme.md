@@ -16,6 +16,15 @@ mocha test/func
 node test/historian/server/start.js
 ```
 
+#### Installing ElasticSearch and running ElasticSearch
+
+```bash
+curl -L -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.5.1-linux-x86_64.tar.gz
+tar -xvf elasticsearch-5.5.1-linux-x86_64.tar.gz 
+./elasticsearch-5.5.1/bin/elasticsearch
+
+
+```
 ### configuration:
 
 ```javascript
@@ -82,3 +91,58 @@ process.exit(1);
 ```
 
 Happner setup instructions in more detail [here](https://github.com/happner/happner/blob/master/docs/walkthrough/the-basics.md).
+
+## Supported Mongo Style Search Parameters 
+
+* $eq
+* $gt
+* $gte
+* $in
+* $lt
+* $lte
+* $ne
+* $nin
+* $and
+* $not
+* $nor
+* $or
+* $exists
+* $regex
+
+### Limitations
+
+#### Embedded documents 
+Embedded documents works slightly different than traditional mongo queries
+Consider the following document:
+
+
+`
+{
+ size:{
+        h: 14, 
+        w: 21, 
+        uom: "cm" 
+    }
+}
+`
+
+Field order does not matter for this provider while they matter for regular mongo. Given the following query, mongo would not match while this provider will. 
+
+`
+{
+ size:{
+        w: 21, 
+        h: 14, 
+        uom: "cm" 
+    }
+}
+`
+
+When a document is specified as an query mongo requires the document to be a precise match. This provider only requires the specified fields to match. The following query will match using this provider but won't match using mongo
+
+` {
+  size:{
+         w: 21, 
+         h: 14 
+              }
+ }`
