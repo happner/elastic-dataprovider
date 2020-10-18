@@ -451,11 +451,13 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
     .__pushElasticMessage('update', elasticMessage)
 
     .then(function(response) {
-      const data = response.get._source;
+      let data = null
+      if(response.get && response.get._source)
+       data = response.get._source;
 
       let created = null;
 
-      if (response.result == 'created')
+      if (response.result == 'created' && data)
         created = _this.__partialTransform(response.get, route.index, route.type);
 
       callback(null, data, created, true, _this.__getMeta(response.get._source));
