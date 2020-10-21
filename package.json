@@ -7,9 +7,8 @@
     "coveralls": "npm run test-cover && nyc report --reporter=text-lcov | coveralls",
     "lint": "eslint '**/*.js'",
     "lint-fix": "eslint '**/*.js' --fix",
-    "postpublish": "npm access grant read-write smc:smc-developers happner-elastic-dataprovider-smc & npm access grant read-only smc:smc-read-only happner-elastic-dataprovider-smc",
     "report": "nyc report --reporter=text --reporter=lcov --reporter=text-summary && nyc report --reporter=text --reporter=text-summary > coverage.txt",
-    "test": "npm run lint && mocha",
+    "test": "mocha",
     "test-cover": "env LOG_LEVEL=off nyc --reporter=none mocha",
     "test-perf": "mocha test/perf.js"
   },
