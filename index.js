@@ -191,7 +191,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
   try {
     if (!options) options = {};
 
-    options.refresh = options.hasOwnProperty("refresh") ? options.refresh.toString() :   'true';
+    options.refresh = options.hasOwnProperty("refresh") ? options.refresh.toString() : 'true';
 
     if (options.upsertType == _this.UPSERT_TYPE.bulk) {
       // dynamic index is generated automatically using "index" in bulk inserts
@@ -427,7 +427,7 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
         data: setData.data
       }
     },
-    _source: options.hasOwnProperty("source") ? options.source :   true ,
+    _source: options.hasOwnProperty("source") ? options.source : true ,
     refresh: options.refresh,
     retryOnConflict: options.retries
   };
