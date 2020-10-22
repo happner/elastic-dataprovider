@@ -191,7 +191,6 @@ function upsert(path, setData, options, dataWasMerged, callback) {
   try {
     if (!options) options = {};
 
-
     options.refresh = options.hasOwnProperty("refresh") ? options.refresh.toString() :   'true';
 
     if (options.upsertType == _this.UPSERT_TYPE.bulk) {
@@ -200,13 +199,10 @@ function upsert(path, setData, options, dataWasMerged, callback) {
     }
 
     const modifiedOn = Date.now();
-
     const timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
-
     if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
     const route = _this.__getRoute(path, setData.data);
-
     _this
       .__ensureDynamic(route) // upserting so we need to make sure our index exists
 
