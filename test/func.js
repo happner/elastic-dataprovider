@@ -623,7 +623,7 @@ describe('func', function() {
       false,
       function(e) {
         expect(e.toString()).to.be(
-          'Error: bulk batches can only be 100000 entries or less ammount 100001'
+          'Error: bulk batches can only be 100000 entries or less amount 100001'
         );
 
         done();
@@ -1142,5 +1142,9 @@ describe('func', function() {
         expect(e.message).to.be("unkown or unsuported MongoOperator '$geoIntersects'");
         done();
       });
+  });
+
+  it('Index delete : non-exisitng index ', function(done) {
+    serviceInstance.remove('/index.that.does.not.exist/*', done);
   });
 });

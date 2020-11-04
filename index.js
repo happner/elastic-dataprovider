@@ -22,10 +22,9 @@ function ElasticProvider(config) {
 
   if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 20;
 
-  if (!config.bulkBachSizes) config.bulkBachSizes  = 1000;
+  if (!config.bulkBatchSizes) config.bulkBatchSizes = 1000;
 
-  if (!config.bulkMaxSize) config.bulkMaxSize  = 100000;
-
+  if (!config.bulkMaxSize) config.bulkMaxSize = 100000;
 
   Object.defineProperty(this, '__config', { value: config });
 
@@ -191,7 +190,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
   try {
     if (!options) options = {};
 
-    options.refresh = options.hasOwnProperty("refresh") ? options.refresh.toString() : 'true';
+    options.refresh = options.hasOwnProperty('refresh') ? options.refresh.toString() : 'true';
 
     if (options.upsertType == _this.UPSERT_TYPE.bulk) {
       // dynamic index is generated automatically using "index" in bulk inserts
@@ -291,16 +290,16 @@ function __bulk(path, setData, options, callback) {
 
   let bulkData = setData;
 
-
-
   // coming in from happn, not an object but a raw [] so assigned to data.value
   if (setData.data && setData.data.value) bulkData = setData.data.value;
   if (bulkData.length > _this.__config.bulkMaxSize)
-    throw new Error(`bulk batches can only be ${_this.__config.bulkMaxSize} entries or less ammount ${bulkData.length}`);
+    throw new Error(
+      `bulk batches can only be ${_this.__config.bulkMaxSize} entries or less amount ${bulkData.length}`
+    );
 
   const bulkDataToPush = [];
 
-  __chunkBulkMessage(bulkData, bulkDataToPush,  _this.__config.bulkBachSizes);
+  __chunkBulkMessage(bulkData, bulkDataToPush, _this.__config.bulkBatchSizes);
 
   const repsonseOb = {
     took: 0,
@@ -330,7 +329,6 @@ function __bulk(path, setData, options, callback) {
       callback(null, repsonseOb, null, true, repsonseOb);
     }
   );
-
 }
 function __chunkBulkMessage(bulkData, returArr = [], chunkAmount = 1000) {
   if (bulkData.length === 0) return;
@@ -427,7 +425,7 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
         data: setData.data
       }
     },
-    _source: options.hasOwnProperty("source") ? options.source : true ,
+    _source: options.hasOwnProperty('source') ? options.source : true,
     refresh: options.refresh,
     retryOnConflict: options.retries
   };
@@ -447,11 +445,11 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
     .__pushElasticMessage('update', elasticMessage)
 
     .then(function(response) {
-      let data = null
+      let data = null;
       let metadata = null;
       if (response.get && response.get._source) {
         data = response.get._source;
-        metadata = _this.__getMeta(response.get._source)
+        metadata = _this.__getMeta(response.get._source);
       }
       let created = null;
 
@@ -515,7 +513,11 @@ function remove(path, callback) {
   } else elasticMessage.id = path;
 
   _this.count(elasticMessage, function(e, count) {
-    if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
+    if (e) {
+      if (e.status != 404)
+        return callback(new Error('count operation failed for delete: ' + e.toString()));
+      else return handleResponse(null);
+    }
 
     deletedCount = count;
 
