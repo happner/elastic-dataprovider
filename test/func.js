@@ -623,7 +623,7 @@ describe('func', function() {
       false,
       function(e) {
         expect(e.toString()).to.be(
-          'Error: bulk batches can only be 100000 entries or less ammount 100001'
+          'Error: bulk batches can only be 100000 entries or less amount 100001'
         );
 
         done();

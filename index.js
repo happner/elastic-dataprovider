@@ -22,7 +22,7 @@ function ElasticProvider(config) {
 
   if (!config.elasticCallConcurrency) config.elasticCallConcurrency = 20;
 
-  if (!config.bulkBachSizes) config.bulkBachSizes = 1000;
+  if (!config.bulkBatchSizes) config.bulkBatchSizes = 1000;
 
   if (!config.bulkMaxSize) config.bulkMaxSize = 100000;
 
@@ -294,12 +294,12 @@ function __bulk(path, setData, options, callback) {
   if (setData.data && setData.data.value) bulkData = setData.data.value;
   if (bulkData.length > _this.__config.bulkMaxSize)
     throw new Error(
-      `bulk batches can only be ${_this.__config.bulkMaxSize} entries or less ammount ${bulkData.length}`
+      `bulk batches can only be ${_this.__config.bulkMaxSize} entries or less amount ${bulkData.length}`
     );
 
   const bulkDataToPush = [];
 
-  __chunkBulkMessage(bulkData, bulkDataToPush, _this.__config.bulkBachSizes);
+  __chunkBulkMessage(bulkData, bulkDataToPush, _this.__config.bulkBatchSizes);
 
   const repsonseOb = {
     took: 0,

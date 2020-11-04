@@ -1,5 +1,5 @@
 # 4.1.1 2020-11-04
-- Don't try to delete indexes that don't exist 
+- Smc-1359 : Don't try to delete indexes that don't exist 
 
 # 4.1.0 2020-10-16
 - Added options for source field, more possibilities for index refresh
