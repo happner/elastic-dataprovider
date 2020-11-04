@@ -1145,9 +1145,6 @@ describe('func', function() {
   });
 
   it('Index delete : non-exisitng index ', function(done) {
-    serviceInstance.remove("/index.that.does.not.exist/*",(err)=>{
-      debugger
-      done(err)
-    })
+    serviceInstance.remove('/index.that.does.not.exist/*', done);
   });
 });
