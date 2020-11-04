@@ -191,7 +191,7 @@ function upsert(path, setData, options, dataWasMerged, callback) {
   try {
     if (!options) options = {};
 
-    options.refresh = options.refresh === false || options.refresh === 'false' ? 'false' : 'true'; // true is slow but reliable
+    options.refresh = options.hasOwnProperty("refresh") ? options.refresh.toString() : 'true';
 
     if (options.upsertType == _this.UPSERT_TYPE.bulk) {
       // dynamic index is generated automatically using "index" in bulk inserts
@@ -199,13 +199,10 @@ function upsert(path, setData, options, dataWasMerged, callback) {
     }
 
     const modifiedOn = Date.now();
-
     const timestamp = setData.data.timestamp ? setData.data.timestamp : modifiedOn;
-
     if (options.upsertType == null) options.upsertType = _this.UPSERT_TYPE.upsert;
 
     const route = _this.__getRoute(path, setData.data);
-
     _this
       .__ensureDynamic(route) // upserting so we need to make sure our index exists
 
@@ -430,7 +427,7 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
         data: setData.data
       }
     },
-    _source: true,
+    _source: options.hasOwnProperty("source") ? options.source : true ,
     refresh: options.refresh,
     retryOnConflict: options.retries
   };
@@ -450,14 +447,18 @@ function __update(path, setData, options, route, timestamp, modifiedOn, callback
     .__pushElasticMessage('update', elasticMessage)
 
     .then(function(response) {
-      const data = response.get._source;
-
+      let data = null
+      let metadata = null;
+      if (response.get && response.get._source) {
+        data = response.get._source;
+        metadata = _this.__getMeta(response.get._source)
+      }
       let created = null;
 
-      if (response.result == 'created')
+      if (response.result == 'created' && data)
         created = _this.__partialTransform(response.get, route.index, route.type);
 
-      callback(null, data, created, true, _this.__getMeta(response.get._source));
+      callback(null, data, created, true, metadata);
     })
 
     .catch(callback);
