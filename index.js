@@ -515,7 +515,12 @@ function remove(path, callback) {
   } else elasticMessage.id = path;
 
   _this.count(elasticMessage, function(e, count) {
-    if (e) return callback(new Error('count operation failed for delete: ' + e.toString()));
+    if (e)
+    {
+      if(e.status != 404)
+        return callback(new Error('count operation failed for delete: ' + e.toString()));
+      else return handleResponse(null)
+    }
 
     deletedCount = count;
 
