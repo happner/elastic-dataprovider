@@ -1,5 +1,6 @@
+const test = require('./test-helper');
 module.exports = {
-  get: function(dbPath, testId) {
+  get: function(dbPath, testId, host) {
     return {
       services: {
         data: {
@@ -11,7 +12,7 @@ module.exports = {
                 provider: dbPath,
                 isDefault: true,
                 settings: {
-                  host: 'http://localhost:9200',
+                  host: test.getEndpoint(),
                   indexes: [
                     {
                       index: 'happner',

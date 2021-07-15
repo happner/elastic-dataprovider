@@ -1,6 +1,6 @@
 describe('func-indexes', function() {
   this.timeout(5000);
-
+  const test = require('./fixtures/test-helper');
   var expect = require('expect.js');
 
   var service = require('..');
@@ -24,7 +24,7 @@ describe('func-indexes', function() {
     name: 'elastic',
     provider: provider_path,
     defaultIndex: 'indextest',
-    host: 'http://localhost:9200',
+    host: test.getEndpoint(),
     indexes: [
       {
         index: 'indextest',
@@ -87,7 +87,7 @@ describe('func-indexes', function() {
     var elasticsearch = require('elasticsearch');
 
     try {
-      var client = new elasticsearch.Client({ host: 'localhost:9200' });
+      var client = new elasticsearch.Client({ host: test.getEndpoint() });
 
       client.ping(
         {
@@ -129,7 +129,7 @@ describe('func-indexes', function() {
       });
   };
 
-  it('sets data with custom path, and data with default path, we then query the data directly and ensure our counts are right', function(done) {
+  it.only('sets data with custom path, and data with default path, we then query the data directly and ensure our counts are right', function(done) {
     serviceInstance.upsert('/custom/' + testId, { data: { test: 'custom' } }, {}, false, function(
       e,
       response,

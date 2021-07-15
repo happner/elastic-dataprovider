@@ -1,6 +1,6 @@
 const util = require('util');
 const shortId = require('shortid');
-
+const test = require('./fixtures/test-helper');
 const MongoToElastic = require('../lib/mongo-to-elastic');
 describe('func', function() {
   this.timeout(5000);
@@ -12,7 +12,7 @@ describe('func', function() {
   var testId = shortId.generate();
 
   var config = {
-    host: 'http://localhost:9200',
+    host: test.getEndpoint(),
     indexes: [
       {
         index: 'happner',

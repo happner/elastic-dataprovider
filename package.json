@@ -1,6 +1,6 @@
 {
   "name": "happner-elastic-dataprovider",
-  "version": "4.1.1",
+  "version": "4.1.2-prerelease-1",
   "private": false,
   "scripts": {
     "coverage": "npm run test-cover && npm run report",
@@ -33,6 +33,7 @@
     "assert": "^1.4.0",
     "chai": "^3.5.0",
     "coveralls": "^3.1.0",
+    "custom-env": "^2.0.1",
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-prettier": "^3.1.4",

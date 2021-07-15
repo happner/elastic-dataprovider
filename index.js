@@ -552,9 +552,6 @@ function find(path, parameters, callback) {
   if (!parameters.criteria) parameters.criteria = {};
   if (!parameters.criteria.path) parameters.criteria.path = route.path;
 
-  if (parameters.criteria.path.indexOf('*') === -1)
-    parameters.criteria.path = parameters.criteria.path.replace(/\//g, '\\/');
-
   let searchString = '';
   try {
     searchString = mongoToElastic.convertCriteria(parameters.criteria);

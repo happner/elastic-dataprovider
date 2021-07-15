@@ -1,8 +1,6 @@
 happner elastic dataprovider
 ----------------------------
-*This dataprovider provides the ability to run happner/happn instances off of elasticsearch instead of mongo or nedb*
-
-### NB: still in active dev, so don't use in production yet.
+*This dataprovider provides the ability to run happner/happn instances off of elasticsearch instead of mongo or nedb
 
 ### installation instructions:
 
