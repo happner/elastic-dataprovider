@@ -1,6 +1,6 @@
 describe('perf', function() {
   this.timeout(5000);
-
+  const test = require('./fixtures/test-helper');
   var methodAnalyzer = require('happner-profane').create();
 
   var expect = require('expect.js');
@@ -26,7 +26,7 @@ describe('perf', function() {
     name: 'elastic',
     provider: provider_path,
     defaultIndex: 'indextest',
-    host: 'http://localhost:9200',
+    host: test.getEndpoint(),
     indexes: [
       {
         index: 'indextest',
@@ -81,6 +81,7 @@ describe('perf', function() {
 
     var upsertAnalytics = methodAnalyzer.getAnalysis();
 
+    // eslint-disable-next-line no-console
     console.log('method analysis:::', JSON.stringify(upsertAnalytics, null, 2));
 
     serviceInstance.stop(done);

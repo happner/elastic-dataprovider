@@ -1,3 +1,5 @@
+# 4.1.2 2021-07-17
+- Smc-3361 : fixes searchs for items with spaces in their path
 # 4.1.1 2020-11-04
 - Smc-1359 : Don't try to delete indexes that don't exist 
 

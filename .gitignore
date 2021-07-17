@@ -29,3 +29,5 @@ test/private/*
 coverage/*
 
 .DS_Store
+.env.test
+.vscode

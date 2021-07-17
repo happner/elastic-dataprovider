@@ -1,6 +1,6 @@
 describe('func-indexes, with route and data caching', function() {
   this.timeout(5000);
-
+  const test = require('./fixtures/test-helper');
   var expect = require('expect.js');
 
   var service = require('..');
@@ -24,7 +24,7 @@ describe('func-indexes, with route and data caching', function() {
     name: 'elastic',
     provider: provider_path,
     defaultIndex: 'indextest',
-    host: 'http://localhost:9200',
+    host: test.getEndpoint(),
     cache: true,
     routeCache: true,
     indexes: [

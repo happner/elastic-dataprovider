@@ -1,6 +1,6 @@
 describe('func-indexes', function() {
   this.timeout(5000);
-
+  const test = require('./fixtures/test-helper');
   var expect = require('expect.js');
 
   var service = require('..');
@@ -24,7 +24,7 @@ describe('func-indexes', function() {
     name: 'elastic',
     provider: provider_path,
     defaultIndex: 'indextest',
-    host: 'http://localhost:9200',
+    host: test.getEndpoint(),
     indexes: [
       {
         index: 'indextest',
@@ -87,7 +87,7 @@ describe('func-indexes', function() {
     var elasticsearch = require('elasticsearch');
 
     try {
-      var client = new elasticsearch.Client({ host: 'localhost:9200' });
+      var client = new elasticsearch.Client({ host: test.getEndpoint() });
 
       client.ping(
         {
@@ -131,9 +131,7 @@ describe('func-indexes', function() {
 
   it('sets data with custom path, and data with default path, we then query the data directly and ensure our counts are right', function(done) {
     serviceInstance.upsert('/custom/' + testId, { data: { test: 'custom' } }, {}, false, function(
-      e,
-      response,
-      created
+      e
     ) {
       if (e) return done(e);
 
@@ -142,7 +140,7 @@ describe('func-indexes', function() {
         { data: { test: 'default' } },
         {},
         false,
-        function(e, response, created) {
+        function(e) {
           if (e) return done(e);
 
           getElasticClient(function(e, client) {
@@ -158,7 +156,7 @@ describe('func-indexes', function() {
                   if (e) return done(e);
 
                   defaultItems.forEach(function(item) {
-                    if (item._id == '/default/' + testId) foundItems.push(item);
+                    if (item._id === '/default/' + testId) foundItems.push(item);
                   });
 
                   expect(foundItems.length).to.be(1);
@@ -166,7 +164,7 @@ describe('func-indexes', function() {
                   foundItems = [];
 
                   customItems.forEach(function(item) {
-                    if (item._id == '/custom/' + testId) foundItems.push(item);
+                    if (item._id === '/custom/' + testId) foundItems.push(item);
                   });
 
                   expect(foundItems.length).to.be(1);
