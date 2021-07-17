@@ -592,7 +592,9 @@ function find(path, parameters, callback) {
         callback(null, _this.__partialTransformAll(found));
       } else callback(null, []);
     })
-    .catch(callback);
+    .catch(e => {
+      callback(e);
+    });
 }
 
 function findOne(criteria, fields, callback) {

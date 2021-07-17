@@ -1,6 +1,22 @@
 happner elastic dataprovider
 ----------------------------
-*This dataprovider provides the ability to run happner/happn instances off of elasticsearch instead of mongo or nedb
+*This dataprovider provides the ability to run happner/happn instances off of elasticsearch instead of mongo or nedb*
+
+### installing elasticsearch and redis on your local machine:
+```bash
+# elastic search - version is 5.1.1
+docker pull docker.elastic.co/elasticsearch/elasticsearch:5.1.1
+
+docker run -p 9200:9200 \
+    -p 9300:9300 \
+    -e "xpack.security.enabled=false" \
+    docker.elastic.co/elasticsearch/elasticsearch:5.1.1
+
+# redis
+docker pull redis
+
+docker run -p 6379:6379 -d redis
+```
 
 ### installation instructions:
 
@@ -108,6 +124,43 @@ Happner setup instructions in more detail [here](https://github.com/happner/happ
 * $regex
 
 ### Limitations
+
+## sorting by a text field
+```javascript
+
+var test_path = '/1_eventemitter_embedded_sanity/' +
+    test_id +
+    '/test subscribe/data/complex/' +
+    require('shortid').generate();
+
+var complex_obj = {
+  regions: ['North', 'South'],
+  towns: ['North.Cape Town'],
+  categories: ['Action', 'History'],
+  subcategories: ['Action.angling', 'History.art'],
+  keywords: ['bass', 'Penny Siopis'],
+  field1: 'field1'
+};
+
+var options1 = {
+  sort: {
+    'data.field1': 1 //unless you have set up the index mapping to make 'data.field1' a keyword, this search  will fail, see ./test/__fixtures/happn-config for a keyword mapping
+  },
+  limit: 1
+};
+
+await publisherclient.set(test_path, complex_obj);
+
+// because we sorting by a text field this will be rejected, you can sort by dates and number type fields however
+const results = await publisherclient.get(
+  '/1_eventemitter_embedded_sanity/' + test_id + '/test subscribe/data/complex/*',
+  {
+    criteria: criteria1,
+    options: options1
+  }
+);
+
+```
 
 #### Embedded documents 
 Embedded documents works slightly different than traditional mongo queries

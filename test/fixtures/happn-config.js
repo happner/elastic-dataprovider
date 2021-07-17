@@ -1,6 +1,6 @@
 const test = require('./test-helper');
 module.exports = {
-  get: function(dbPath, testId, host) {
+  get: function(dbPath, testId) {
     return {
       services: {
         data: {
@@ -32,6 +32,19 @@ module.exports = {
                           }
                         }
                       }
+                    },
+                    {
+                      index: 'sortedandlimitedindex2',
+                      body: {
+                        mappings: {
+                          happner: {
+                            properties: {
+                              'data.field1': { type: 'keyword' },
+                              'data.item_sort_id': { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
                     }
                   ],
                   dataroutes: [
@@ -41,6 +54,10 @@ module.exports = {
                         testId +
                         '/testsubscribe/data/complex*',
                       index: 'sortedandlimitedindex1'
+                    },
+                    {
+                      pattern: `/complexsearch/${testId}/*`,
+                      index: 'sortedandlimitedindex2'
                     },
                     {
                       dynamic: true, //dynamic routes generate a new index/type according to the items in the path

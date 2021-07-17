@@ -13,7 +13,7 @@ describe('func', function() {
       MongoToElastic.convertCriteria({
         path: '/TEST/PATH/TEST LEAF/1/2/3'
       })
-    ).to.eql('( path:\\/TEST\\/PATH\\/TEST// LEAF\\/1\\/2\\/3 ) ');
+    ).to.eql('( path:"/TEST/PATH/TEST LEAF/1/2/3" ) ');
     expect(
       MongoToElastic.convertCriteria({
         path: '/TEST/PATH/TEST LEAF/*',
@@ -28,7 +28,7 @@ describe('func', function() {
         $and: [{ test: { $lte: 1 } }, { test: { $gte: 0 } }]
       })
     ).to.eql(
-      '( path:\\/TEST\\/PATH\\/TEST// LEAF\\/1\\/2\\/3 )  AND ( ( ( ( test:<=1 )  )  AND ( ( test:>=0 )  )  ) ) '
+      '( path:"/TEST/PATH/TEST LEAF/1/2/3" )  AND ( ( ( ( test:<=1 )  )  AND ( ( test:>=0 )  )  ) ) '
     );
   });
 });
