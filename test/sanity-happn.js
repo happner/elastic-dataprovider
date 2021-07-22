@@ -4,12 +4,13 @@ describe('sanity-happn', function() {
   var service = happn.service;
   var async = require('async');
   var happnInstance = null;
+  const delay = require('await-delay');
 
   var test_id = Date.now() + '_' + require('shortid').generate();
 
   var path = require('path');
 
-  this.timeout(10000);
+  this.timeout(60000);
 
   var db_path = path.resolve(__dirname.replace('test', '')) + path.sep + 'index.js';
 
@@ -887,11 +888,8 @@ describe('sanity-happn', function() {
                     property3: 'property3'
                   },
                   {},
-                  function(e, setresult) {
+                  function(e) {
                     if (e) return callback(new Error(e));
-
-                    ////console.log('DID ON SET');
-                    ////console.log(setresult);
                   }
                 );
               }
@@ -1074,8 +1072,27 @@ describe('sanity-happn', function() {
     });
   });
 
-  it('should search for a complex object', function(callback) {
-    var test_path_end = require('shortid').generate();
+  it('the publisher should set and get spaces in the path', async () => {
+    var test_path = `/complex spaces get set/${test_id}`;
+
+    await publisherclient.set(
+      test_path,
+      {
+        property1: 'property1',
+        property2: 'property2',
+        property3: 'property3'
+      },
+      {
+        noPublish: true
+      }
+    );
+    const results = await publisherclient.get(test_path);
+    expect(results.property1 === 'property1').to.be(true);
+    expect(results._meta.created === results._meta.modified).to.be(true);
+  });
+
+  it('should search for a complex object, with spaces in the path', async () => {
+    var test_path = `/complex spaces/${test_id}`;
 
     var complex_obj = {
       regions: ['North', 'South'],
@@ -1111,7 +1128,7 @@ describe('sanity-happn', function() {
 
     var options1 = {
       sort: {
-        'data.field1': 1
+        'data.teststamp': 1
       },
       limit: 1
     };
@@ -1121,60 +1138,138 @@ describe('sanity-happn', function() {
     var options2 = {
       fields: { towns: 1, keywords: 1 },
       sort: {
-        'data.field1': 1
+        'data.teststamp': 1
       },
       limit: 2
     };
 
-    publisherclient.set(
-      '/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex/' + test_path_end,
-      complex_obj,
-      null,
-      function(e, put_result) {
-        if (e) return callback(e);
-
-        publisherclient.set(
-          '/1_eventemitter_embedded_sanity/' +
-            test_id +
-            '/testsubscribe/data/complex/' +
-            test_path_end +
-            '/1',
-          complex_obj,
-          null,
-          function(e, put_result) {
-            if (e) return callback(e);
-
-            ////////////console.log('searching');
-            publisherclient.get(
-              '/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*',
-              {
-                criteria: criteria1,
-                options: options1
-              },
-              function(e, search_result) {
-                if (e) return callback(e);
-
-                expect(search_result.length == 1).to.be(true);
-
-                publisherclient.get(
-                  '/1_eventemitter_embedded_sanity/' + test_id + '/testsubscribe/data/complex*',
-                  {
-                    criteria: criteria2,
-                    options: options2
-                  },
-                  function(e, search_result) {
-                    if (e) return callback(e);
-
-                    expect(search_result.length == 2).to.be(true);
-                    callback(e);
-                  }
-                );
-              }
-            );
-          }
-        );
+    var options3 = {
+      sort: {
+        'data.teststamp': -1
       }
-    );
+    };
+
+    var options4 = {
+      sort: {
+        'data.teststamp': 1
+      }
+    };
+
+    const teststamp1 = Date.now();
+    await delay(5);
+    const teststamp2 = Date.now();
+
+    await publisherclient.set(`${test_path}/0`, { ...complex_obj, teststamp: teststamp1 });
+    await publisherclient.set(`${test_path}/1`, { ...complex_obj, teststamp: teststamp2 });
+
+    const results1 = await publisherclient.get(`${test_path}/*`, {
+      criteria: criteria1,
+      options: options1
+    });
+
+    const results2 = await publisherclient.get(`${test_path}/*`, {
+      criteria: criteria2,
+      options: options2
+    });
+
+    const results3 = await publisherclient.get(`${test_path}/*`, {
+      options: options3
+    });
+
+    const results4 = await publisherclient.get(`${test_path}/*`, {
+      options: options4
+    });
+
+    expect(results1.length === 1).to.be(true);
+    expect(results2.length === 2).to.be(true);
+
+    expect(results1[0].teststamp).to.be(teststamp1);
+    expect(results3[0].teststamp).to.be(teststamp2);
+    expect(results3.length).to.be(2);
+    expect(results4[0].teststamp).to.be(teststamp1);
+  });
+
+  it('should search for a complex object', async () => {
+    var complex_obj = {
+      regions: ['North', 'South'],
+      towns: ['North.Cape Town'],
+      categories: ['Action', 'History'],
+      subcategories: ['Action.angling', 'History.art'],
+      keywords: ['bass', 'Penny Siopis'],
+      field1: 'field1',
+      timestamp: Date.now()
+    };
+
+    var criteria1 = {
+      $or: [
+        {
+          'data.regions': {
+            $in: ['North', 'South', 'East', 'West']
+          }
+        },
+        {
+          'data.towns': {
+            $in: ['North.Cape Town', 'South.East London']
+          }
+        },
+        {
+          'data.categories': {
+            $in: ['Action', 'History']
+          }
+        }
+      ],
+      'data.keywords': {
+        $in: ['bass', 'Penny Siopis']
+      }
+    };
+
+    var options1 = {
+      sort: {
+        'data.timestamp': 1
+      },
+      limit: 1
+    };
+
+    var criteria2 = null;
+
+    var options2 = {
+      fields: { towns: 1, keywords: 1 },
+      sort: {
+        'data.timestamp': 1
+      },
+      limit: 2
+    };
+
+    var options3 = {
+      fields: { towns: 1, keywords: 1 },
+      sort: {
+        'data.timestamp': 1
+      },
+      limit: 3
+    };
+
+    await publisherclient.set(`/complexsearch/${test_id}/0`, complex_obj);
+    await publisherclient.set(`/complexsearch/${test_id}/1`, complex_obj);
+    await publisherclient.set(`/complexsearch/${test_id}/2`, complex_obj);
+
+    const result1 = await publisherclient.get(`/complexsearch/${test_id}/*`, {
+      criteria: criteria1,
+      options: options1
+    });
+
+    const result2 = await publisherclient.get(`/complexsearch/${test_id}/*`, {
+      criteria: criteria2,
+      options: options2
+    });
+
+    const result3 = await publisherclient.get(`/complexsearch/${test_id}/*`, {
+      criteria: criteria2,
+      options: options3
+    });
+
+    expect(result1.length === 1).to.be(true);
+    expect(result2.length === 2).to.be(true);
+    expect(result3.length === 3).to.be(true);
   });
 
   it('should search for a complex object by dates', function(callback) {
@@ -1200,7 +1295,7 @@ describe('sanity-happn', function() {
         test_path_end,
       complex_obj,
       null,
-      function(e, put_result) {
+      function(e) {
         expect(e == null).to.be(true);
 
         setTimeout(function() {
@@ -1286,10 +1381,7 @@ describe('sanity-happn', function() {
         if (e) return done(e);
 
         try {
-          console.log(e, inserted);
-
           expect(inserted._meta.errors).to.be(false);
-
           expect(inserted._meta.items.length).to.be(4);
 
           for (var i = 0; i < inserted.value.length; i++)
@@ -1343,12 +1435,10 @@ describe('sanity-happn', function() {
       '/dynamic/{{indexProperty}}/{{typeProperty}}/{id}',
       bulkItems,
       { upsertType: 3 },
-      function(e, results) {
+      function(e) {
         try {
           expect(e).to.not.be(null);
-
           expect(e).to.not.be(undefined);
-
           return done();
         } catch (e) {
           done(e);
