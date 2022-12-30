@@ -44,7 +44,7 @@
     "happner-2": "*",
     "happner-profane": "^1.0.0",
     "json-from-schema": "1.10.0",
-    "mocha": "^7.2.0",
+    "mocha": "^10.2.0",
     "node-uuid": "^1.4.7",
     "nyc": "^15.1.0",
     "prettier": "^1.19.1",
